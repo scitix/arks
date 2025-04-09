@@ -148,6 +148,8 @@ type ArksApplicationSpec struct {
 
 	Model corev1.LocalObjectReference `json:"model"`
 
+	ServedModelName string `json:"servedModelName"`
+
 	// +optional
 	TensorParallelSize int `json:"tensorParallelSize"`
 	// +optional

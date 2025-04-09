@@ -510,7 +510,7 @@ func generateLeaderCommand(application *arksv1.ArksApplication) ([]string, error
 	case string(arksv1.ArksRuntimeVLLM):
 		args := "/bin/bash /vllm-workspace/examples/online_serving/multi-node-serving.sh leader --ray_cluster_size=$(LWS_GROUP_SIZE); python3 -m vllm.entrypoints.openai.api_server --port 8080"
 		args = fmt.Sprintf("%s --model %s", args, generateModelPath(application.Namespace, application.Spec.Model.Name))
-		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.Model.Name)
+		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.ServedModelName)
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tensor-parallel-size %d", args, application.Spec.TensorParallelSize)
 		}
@@ -521,7 +521,7 @@ func generateLeaderCommand(application *arksv1.ArksApplication) ([]string, error
 	case string(arksv1.ArksRuntimeSGLang):
 		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code --host 0.0.0.0 --port 8080"
 		args = fmt.Sprintf("%s --model-path /models/%s/%s", args, application.Namespace, application.Spec.Model.Name)
-		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.Model.Name)
+		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.ServedModelName)
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
 		}
@@ -543,7 +543,7 @@ func generateWorkerCommand(application *arksv1.ArksApplication) ([]string, error
 	case string(arksv1.ArksRuntimeSGLang):
 		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code"
 		args = fmt.Sprintf("%s --model-path /models/%s/%s", args, application.Namespace, application.Spec.Model.Name)
-		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.Model.Name)
+		args = fmt.Sprintf("%s --served-model-name %s", args, application.Spec.ServedModelName)
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
 		}
