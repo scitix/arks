@@ -48,6 +48,7 @@ const (
 	ArksRuntimeDefault ArksRuntime = "vllm" // The default driver is vLLM
 	ArksRuntimeVLLM    ArksRuntime = "vllm"
 	ArksRuntimeSGLang  ArksRuntime = "sglang"
+	ArksRuntimeDynamo  ArksRuntime = "dynamo"
 )
 
 const (
