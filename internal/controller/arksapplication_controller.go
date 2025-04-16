@@ -84,6 +84,7 @@ func (r *ArksApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// remove model
 	if application.DeletionTimestamp != nil {
+		klog.Infof("application %s/%s: remove application", application.Namespace, application.Name)
 		return r.remove(ctx, application)
 	}
 
@@ -120,27 +121,31 @@ func (r *ArksApplicationReconciler) remove(ctx context.Context, application *ark
 	}
 
 	serviceName := generateApplicationServiceName(application)
+	klog.Infof("application %s/%s: start to remove application service (%s)", application.Namespace, application.Name, serviceName)
 	if err := r.KubeClient.CoreV1().Services(application.Namespace).Delete(ctx, serviceName, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
-			klog.Errorf("application %s/%s: failed to delete application endpoint service: %q", application.Namespace, serviceName, err)
-			return ctrl.Result{}, fmt.Errorf("failed to delete application endpoint service: %q", err)
+			klog.Errorf("application %s/%s: failed to delete application service (%s): %q", application.Namespace, serviceName, serviceName, err)
+			return ctrl.Result{}, fmt.Errorf("failed to delete application service (%s): %q", serviceName, err)
 		}
 	}
+	klog.Infof("application %s/%s: remove application service (%s) successfully", application.Namespace, application.Name, serviceName)
 
+	klog.Infof("application %s/%s: start to remove application underlying LWS", application.Namespace, application.Name)
 	if err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
 			klog.Errorf("application %s/%s: failed to delete underlying LWS: %q", application.Namespace, serviceName, err)
 			return ctrl.Result{}, fmt.Errorf("failed to delete underlying LWS: %q", err)
 		}
 	}
+	klog.Infof("application %s/%s: remove application underlying LWS successfully", application.Namespace, application.Name)
 
 	// remove finalizer
-	removeFinalizer(application, arksModelControllerFinalizer)
+	removeFinalizer(application, arksApplicationControllerFinalizer)
 	if err := r.Client.Update(ctx, application); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to remove application finalizer: %q", err)
 	}
 
-	klog.Infof("application (%s/%s): delete the application successfully", application.Namespace, application.Name)
+	klog.Infof("application %s/%s: delete the application successfully", application.Namespace, application.Name)
 	return ctrl.Result{}, nil
 }
 
@@ -165,6 +170,19 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 	}
 	if application.Spec.Runtime == "" {
 		application.Spec.Runtime = string(arksv1.ArksRuntimeDefault)
+	}
+
+	if !hasFinalizer(application, arksApplicationControllerFinalizer) {
+		addFinalizer(application, arksApplicationControllerFinalizer)
+
+		if err := r.Client.Update(ctx, application); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to add application finalizer: %q", err)
+		}
+
+		// requeue to refresh application resource version
+		return ctrl.Result{
+			Requeue: true,
+		}, nil
 	}
 
 	if !checkApplicationCondition(application, arksv1.ArksApplicationPrecheck) {
@@ -292,6 +310,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 						},
 					},
 				}
+				ctrl.SetControllerReference(application, svc, r.Scheme)
 
 				if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err != nil {
 					if !apierrors.IsAlreadyExists(err) {
