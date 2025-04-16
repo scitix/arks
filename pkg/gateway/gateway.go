@@ -18,10 +18,12 @@ package gateway
 
 import (
 	"context"
-	"errors"
 	"io"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/scitix/arks/pkg/gateway/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -38,7 +40,7 @@ type Server struct {
 	ratelimiter    ratelimiter.RateLimterInterface
 	quotaService   quota.QuotaService
 	configProvider qosconfig.ConfigProvider
-	// TODO: stat manager
+	collector      metrics.MetricsCollector
 }
 
 func NewServer(
@@ -51,15 +53,17 @@ func NewServer(
 		ratelimiter:    ratelimiter,
 		quotaService:   quotaService,
 		configProvider: configProvider,
+		collector:      metrics.NewMetricsCollector(),
 	}
 }
 
 func (s *Server) Process(srv extProcPb.ExternalProcessor_ProcessServer) error {
 	var qos *qosconfig.UserQos
 	// var rpm, traceTerm int64
-	var respErrorCode int
+	var statusCode int
 	var model, token string
-	var stream, isRespError bool
+	var stream bool
+	var requestStart time.Time
 	ctx := srv.Context()
 	requestID := uuid.New().String()
 	completed := false
@@ -85,22 +89,27 @@ func (s *Server) Process(srv extProcPb.ExternalProcessor_ProcessServer) error {
 		switch v := req.Request.(type) {
 
 		case *extProcPb.ProcessingRequest_RequestHeaders:
+			requestStart = time.Now()
 			resp, token = s.HandleRequestHeaders(ctx, requestID, req)
 
 		case *extProcPb.ProcessingRequest_RequestBody:
 			resp, qos, model, stream = s.HandleRequestBody(ctx, requestID, req, token)
 
 		case *extProcPb.ProcessingRequest_ResponseHeaders:
-			resp, isRespError, respErrorCode = s.HandleResponseHeaders(ctx, requestID, req)
-
+			resp, statusCode = s.HandleResponseHeaders(ctx, requestID, req)
+			if statusCode == 500 {
+				s.collector.RecordRequest(qos.Namespace, qos.User, model, float64(time.Since(requestStart).Milliseconds())/1000, strconv.Itoa(statusCode))
+				// for error code 500, ProcessingRequest_ResponseBody is not invoked
+				resp = s.responseErrorProcessing(ctx, resp, statusCode, model, requestID, "")
+			}
 		case *extProcPb.ProcessingRequest_ResponseBody:
-			respBody := req.Request.(*extProcPb.ProcessingRequest_ResponseBody)
-			if isRespError {
-				klog.ErrorS(errors.New("request end"), string(respBody.ResponseBody.GetBody()), "requestID", requestID)
-				generateErrorResponse(envoyTypePb.StatusCode(respErrorCode), nil, string(respBody.ResponseBody.GetBody()))
+			if statusCode != 200 {
+				resp = s.responseErrorProcessing(ctx, resp, statusCode, model, requestID,
+					string(req.Request.(*extProcPb.ProcessingRequest_ResponseBody).ResponseBody.GetBody()))
 			} else {
 				resp, completed = s.HandleResponseBody(ctx, requestID, req, qos, model, stream, completed)
 			}
+			s.collector.RecordRequest(qos.Namespace, qos.User, model, float64(time.Since(requestStart).Milliseconds())/1000, strconv.Itoa(statusCode))
 		default:
 			klog.Infof("Unknown Request type %+v\n", v)
 		}
@@ -123,4 +132,19 @@ func (s *HealthServer) Check(ctx context.Context, in *healthPb.HealthCheckReques
 
 func (s *HealthServer) Watch(in *healthPb.HealthCheckRequest, srv healthPb.Health_WatchServer) error {
 	return status.Error(codes.Unimplemented, "watch is not implemented")
+}
+
+func (s *Server) responseErrorProcessing(ctx context.Context, resp *extProcPb.ProcessingResponse, respErrorCode int,
+	model, requestID, errMsg string) *extProcPb.ProcessingResponse {
+	// httprouteErr := s.validateHTTPRouteStatus(ctx, model)
+	// if errMsg != "" && httprouteErr != nil {
+	// 	errMsg = fmt.Sprintf("%s. %s", errMsg, httprouteErr.Error())
+	// } else if errMsg == "" && httprouteErr != nil {
+	// 	errMsg = httprouteErr.Error()
+	// }
+	klog.ErrorS(nil, "request end", "requestID", requestID, "errorCode", respErrorCode, "errorMessage", errMsg)
+	return generateErrorResponse(
+		envoyTypePb.StatusCode(respErrorCode),
+		resp.GetResponseHeaders().GetResponse().GetHeaderMutation().GetSetHeaders(),
+		errMsg)
 }

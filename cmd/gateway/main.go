@@ -21,12 +21,14 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/scitix/arks/pkg/gateway"
 	"github.com/scitix/arks/pkg/gateway/qosconfig"
@@ -52,6 +54,7 @@ type Settings struct {
 	Provider  ProviderSettings
 	RateLimit RateLimiterSettings
 	Quota     QuotaSettings
+	Metrics   MetricsSettings
 }
 
 type ServerSettings struct {
@@ -91,6 +94,10 @@ type QuotaSettings struct {
 	KeyPrefix string
 }
 
+type MetricsSettings struct {
+	Port int
+}
+
 func initFlags(s *Settings) {
 	// Server flags
 	flag.IntVar(&s.Server.GrpcPort, "server.port", 50052, "gRPC server port")
@@ -108,6 +115,9 @@ func initFlags(s *Settings) {
 	// Quota flags
 	flag.StringVar(&s.Quota.Type, "quota.type", "redis", "quota type (redis, localcache, memcache)")
 	flag.StringVar(&s.Quota.KeyPrefix, "quota.key-prefix", "arks-quota", "key prefix for quota")
+
+	// Metrics flags
+	flag.IntVar(&s.Metrics.Port, "metrics.port", 8080, "Prometheus metrics port")
 
 	// TODO: klog level set
 	// klog.InitFlags(flag.CommandLine)
@@ -214,7 +224,9 @@ func main() {
 
 	extProcPb.RegisterExternalProcessorServer(s, gateway.NewServer(ratelimiter, quotaService, provider))
 	healthPb.RegisterHealthServer(s, gateway.NewHealthCheckServer())
-
+	
+	// metrics server
+	startMetricsServer(settings.Metrics.Port)
 	// shutdown graceful
 	shutdownComplete := make(chan struct{})
 	go func() {
@@ -288,4 +300,22 @@ func createConfigProvider(s *ProviderSettings) (qosconfig.ConfigProvider, error)
 		// todo: file, redis config
 	}
 	return nil, fmt.Errorf("invalid config type: %s", s.Type)
+}
+
+// 添加启动 metrics server 的函数
+func startMetricsServer(port int) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	go func() {
+		klog.Infof("Starting metrics server on port %d", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Errorf("Metrics server failed: %v", err)
+		}
+	}()
 }

@@ -109,6 +109,7 @@ func (p *ArksProvider) Start(ctx context.Context) error {
 		// predicate.ResourceVersionChangedPredicate{}, // watch all fields change
 		predicate.Funcs{
 			DeleteFunc: func(e event.DeleteEvent) bool {
+				// TODO: delete quota usage in redis?
 				return true // deletion watch
 			},
 		},
@@ -251,11 +252,11 @@ func (p *ArksProvider) syncQuotaUsage(ctx context.Context) error {
 				}
 			}
 
-			// 查找是否已存在该类型的 status
+			// find status
 			found := false
 			for i, status := range quota.Status.QuotaStatus {
 				if status.Type == quotaType {
-					// 如果值不同，更新 status
+					
 					if status.Used < u.CurrentUsage {
 						shouldUpdateCR = true
 						quota.Status.QuotaStatus[i].Used = u.CurrentUsage
@@ -270,7 +271,7 @@ func (p *ArksProvider) syncQuotaUsage(ctx context.Context) error {
 				}
 			}
 
-			// 如果不存在，添加新的 status
+			// add new status 
 			if !found {
 				shouldUpdateCR = true
 				quota.Status.QuotaStatus = append(quota.Status.QuotaStatus, arksv1.QuotaStatus{

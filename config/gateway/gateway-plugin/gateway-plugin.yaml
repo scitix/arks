@@ -7,9 +7,14 @@ spec:
   selector:
     app: arks-gateway-plugins
   ports:
-    - protocol: TCP
+    - name: grpc
+      protocol: TCP
       port: 50052
       targetPort: 50052
+    - name: metrics
+      protocol: TCP
+      port: 8080
+      targetPort: metrics
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -45,6 +50,8 @@ spec:
             - -redis.addrs=arks-redis-master:6379
           ports:
             - containerPort: 50052
+            - name: metrics
+              containerPort: 8080
           resources:
             requests:
               cpu: 1

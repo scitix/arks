@@ -139,6 +139,7 @@ func (s *Server) checkRateLimit(ctx context.Context, qos *qosconfig.UserQos) (*e
 			continue
 		}
 		if r.OverLimit {
+			s.collector.RecordRateLimitHit(qos.Namespace, qos.User, qos.Model, r.RuleName)
 			return generateErrorResponse(
 				envoyTypePb.StatusCode_TooManyRequests,
 				[]*configPb.HeaderValueOption{{Header: &configPb.HeaderValue{
