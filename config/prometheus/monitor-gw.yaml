@@ -1,0 +1,15 @@
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: arks-gateway-metrics-monitor
+  namespace: arks-operator-system
+spec:
+  endpoints:
+    - path: /metrics
+      port: metrics
+      scheme: http
+      interval: 15s
+  selector:
+    matchLabels:
+      app: arks-gateway-plugins

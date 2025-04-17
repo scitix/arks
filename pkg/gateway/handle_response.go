@@ -33,7 +33,7 @@ import (
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 )
 
-func (s *Server) HandleResponseHeaders(ctx context.Context, requestID string, req *extProcPb.ProcessingRequest) (*extProcPb.ProcessingResponse, bool, int) {
+func (s *Server) HandleResponseHeaders(ctx context.Context, requestID string, req *extProcPb.ProcessingRequest) (*extProcPb.ProcessingResponse, int) {
 	klog.InfoS("-- In ResponseHeaders processing ...", "requestID", requestID)
 	b := req.Request.(*extProcPb.ProcessingRequest_ResponseHeaders)
 
@@ -44,15 +44,15 @@ func (s *Server) HandleResponseHeaders(ctx context.Context, requestID string, re
 		},
 	}}
 
-	var isProcessingError bool
-	var processingErrorCode int
+	var statusCode int
+
 	for _, headerValue := range b.ResponseHeaders.Headers.Headers {
 		if headerValue.Key == ":status" {
-			code, _ := strconv.Atoi(string(headerValue.RawValue))
-			if code != 200 {
-				isProcessingError = true
-				processingErrorCode = code
-			}
+			statusCode, _ = strconv.Atoi(string(headerValue.RawValue))
+			// if code != 200 {
+			// 	isProcessingError = true
+			// 	statusCode = code
+			// }
 		}
 		headers = append(headers, &configPb.HeaderValueOption{
 			Header: &configPb.HeaderValue{
@@ -73,7 +73,7 @@ func (s *Server) HandleResponseHeaders(ctx context.Context, requestID string, re
 				},
 			},
 		},
-	}, isProcessingError, processingErrorCode
+	}, statusCode
 }
 
 func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *extProcPb.ProcessingRequest, qos *qosconfig.UserQos, model string, stream bool, hasCompleted bool) (*extProcPb.ProcessingResponse, bool) {
@@ -92,12 +92,11 @@ func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *
 	complete := hasCompleted
 
 	// TODO: Handle request tracing
-	// defer func() {
-	// 	// Use complete to ensure DoneRequestTrace is only called once
-	// 	if !hasCompleted && complete && b.ResponseBody.EndOfStream {
-	// 		s.cache.DoneRequestTrace(requestID, model, promptTokens, completionTokens, traceTerm)
-	// 	}
-	// }()
+	defer func() {
+		if !hasCompleted && complete && b.ResponseBody.EndOfStream {
+			s.collector.RecordTokenUsage(qos.Namespace, qos.User, model, promptTokens, completionTokens)
+		}
+	}()
 
 	// Handle streaming response
 	if stream {
