@@ -311,6 +311,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 							{
 								Protocol: corev1.ProtocolTCP,
 								Port:     8080,
+								Name:     "http",
 							},
 						},
 					},
