@@ -34,7 +34,7 @@ var (
 		prometheus.HistogramOpts{
 			Name:    "gateway_request_duration_seconds",
 			Help:    "Request duration in seconds",
-			Buckets: []float64{0.1, 1, 2, 5, 10, 20, 30, 45, 60},
+			Buckets: []float64{0.1, 0.5, 1, 2, 5, 10, 20, 30, 45, 60},
 		},
 		[]string{"namespace", "user", "model"},
 	)

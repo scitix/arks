@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: arks-gateway-plugins
   namespace: arks-operator-system
+  labels:
+    app: arks-gateway-plugins
 spec:
   selector:
     app: arks-gateway-plugins
