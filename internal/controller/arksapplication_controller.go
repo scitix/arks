@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -296,6 +297,10 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: application.Namespace,
 						Name:      serviceName,
+						Labels: map[string]string{
+							"prometheus-discovery": "true",
+							"managed-by":           "arks",
+						},
 					},
 					Spec: corev1.ServiceSpec{
 						Selector: map[string]string{
@@ -556,6 +561,9 @@ func generateLeaderCommand(application *arksv1.ArksApplication) ([]string, error
 		for i := range application.Spec.ExtraOptions {
 			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
 		}
+		if !strings.Contains(args, "enable-metrics") {
+			args = fmt.Sprintf("%s --enable-metrics", args)
+		}
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeDynamo):
 		args := "dynamo run in=http out=dyn://$(LWS_LEADER_ADDRESS)"
@@ -583,6 +591,9 @@ func generateWorkerCommand(application *arksv1.ArksApplication) ([]string, error
 		}
 		for i := range application.Spec.ExtraOptions {
 			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		}
+		if !strings.Contains(args, "enable-metrics") {
+			args = fmt.Sprintf("%s --enable-metrics", args)
 		}
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeDynamo):
