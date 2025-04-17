@@ -302,7 +302,7 @@ func createConfigProvider(s *ProviderSettings) (qosconfig.ConfigProvider, error)
 	return nil, fmt.Errorf("invalid config type: %s", s.Type)
 }
 
-// 添加启动 metrics server 的函数
+
 func startMetricsServer(port int) {
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.Handler())
