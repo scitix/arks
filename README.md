@@ -101,7 +101,7 @@ Check resources ready:
 # Check all ARKS custom resources
 kubectl get arksapplication,arksendpoint,arksmodel,arksquota,arkstoken,httproute -owide
 ---
-# REPLICAS should equals to READY, PHASE shoule be Running
+# REPLICAS should equals to READY, PHASE should be Running
 NAME                                      PHASE     REPLICAS   READY   AGE   MODEL     RUNTIME   DRIVER
 arksapplication.arks.scitix.ai/app-qwen   Running   1          1       21m   qwen-7b   sglang
 
