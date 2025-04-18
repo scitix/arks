@@ -1,0 +1,44 @@
+# Prometheus Monitor Service (Metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: runtime-monitor
+  namespace: arks-operator-system
+spec:
+  endpoints:
+    - path: /metrics
+      port: http
+      scheme: http
+      interval: 15s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: '(sglang|vllm|tensorrt|onnx)[:_].+'
+          action: keep
+
+        - sourceLabels: [__name__]
+          regex: '(sglang|vllm|tensorrt|onnx)[:_](.+)'
+          targetLabel: runtime
+          replacement: '$1'
+
+        - sourceLabels: [__name__]
+          regex: '(sglang|vllm|tensorrt|onnx)[:_](.+)'
+          targetLabel: __name__
+          replacement: '$2'
+        # sglang: num_running_reqs, vllm: num_requests_running
+        - sourceLabels: [__name__]
+          regex: '(.*?)num_running_reqs'
+          targetLabel: __name__
+          replacement: '${1}num_requests_running'
+        
+        # sglang: num_queue_reqs, vllm: num_requests_waiting
+        - sourceLabels: [__name__]
+          regex: '(.*?)num_queue_reqs'
+          targetLabel: __name__
+          replacement: '${1}num_requests_waiting'
+        
+  namespaceSelector:
+    any: true
+  selector:
+    matchLabels:
+      managed-by: arks
+      prometheus-discovery: "true"
