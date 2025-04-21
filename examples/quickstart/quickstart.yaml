@@ -28,10 +28,7 @@ metadata:
 spec:
   replicas: 1
   tensorParallelSize: 2
-  extraOptions:
-    - --mem-fraction-static
-    - "0.7"
-  runtime: sglang
+  runtime: vllm
   # Optional, default to spec.model.name
   # servedModelName: qwen-7b
   model:
