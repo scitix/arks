@@ -46,7 +46,7 @@ spec:
       containers:
         - name: main
           # TODO: image update
-          image: registry-ap-southeast.scitix.ai/k8s/arks-gateway-plugin:v1.0.0 
+          image: scitixai/arks-gateway-plugin:v0.1.0
           imagePullPolicy: Always
           args:
             - -redis.addrs=arks-redis-master:6379

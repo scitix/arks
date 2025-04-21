@@ -52,11 +52,11 @@ const (
 )
 
 const (
-	ArksControllerKeyApplication  = "arks.scitix.ai/application"
-	ArksControllerKeyModel        = "arks.scitix.ai/model"
-	ArksControllerKeyToken        = "arks.scitix.ai/token"
-	ArksControllerKeyQuota        = "arks.scitix.ai/quota"
-	ArksControllerKeyWorkLoadRole = "arks.scitix.ai/work-load-role"
+	ArksControllerKeyApplication  = "arks.ai/application"
+	ArksControllerKeyModel        = "arks.ai/model"
+	ArksControllerKeyToken        = "arks.ai/token"
+	ArksControllerKeyQuota        = "arks.ai/quota"
+	ArksControllerKeyWorkLoadRole = "arks.ai/work-load-role"
 
 	ArksWorkLoadRoleLeader = "leader"
 	ArksWorkLoadRoleWorker = "worker"

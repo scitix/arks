@@ -1,4 +1,4 @@
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksToken
 metadata:
   name: example-token

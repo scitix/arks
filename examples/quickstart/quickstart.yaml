@@ -1,4 +1,4 @@
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksModel
 metadata:
   name: qwen-7b
@@ -18,7 +18,7 @@ spec:
             storage: 2Gi
         storageClassName: local-path
 ---
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksApplication
 metadata:
   labels:
@@ -44,7 +44,7 @@ spec:
       requests:
         nvidia.com/gpu: "1"
 ---
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksEndpoint
 metadata:
   labels:
@@ -64,7 +64,7 @@ spec:
         type: PathPrefix 
         value: /v1/chat/completions
 ---
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksQuota
 metadata:
   name: basic-quota
@@ -78,7 +78,7 @@ spec:
     - type: total   
       value: 600000
 ---
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksToken
 metadata:
   name: example-token

@@ -63,7 +63,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-        image: registry-ap-southeast.scitix.ai/k8s/arks-operator:v0.1.0
+        image: scitixai/arks-operator:v0.1.0
         imagePullPolicy: Always
         name: manager
         ports: []

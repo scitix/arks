@@ -16,7 +16,7 @@ limitations under the License.
 
 package qosconfig
 
-import "github.com/scitix/arks/pkg/gateway/quota"
+import "github.com/arks-ai/arks/pkg/gateway/quota"
 
 type RateLimit struct {
 	Type  string `json:"type"`

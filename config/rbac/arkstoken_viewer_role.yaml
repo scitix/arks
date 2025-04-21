@@ -1,7 +1,7 @@
 # This rule is not used by the project arks-operator itself.
 # It is provided to allow the cluster admin to help manage permissions for users.
 #
-# Grants read-only access to arks.scitix.ai resources.
+# Grants read-only access to arks.ai resources.
 # This role is intended for users who need visibility into these resources
 # without permissions to modify them. It is ideal for monitoring purposes and limited-access viewing.
 
@@ -14,7 +14,7 @@ metadata:
   name: arkstoken-viewer-role
 rules:
 - apiGroups:
-  - arks.scitix.ai
+  - arks.ai
   resources:
   - arkstokens
   verbs:
@@ -22,7 +22,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - arks.scitix.ai
+  - arks.ai
   resources:
   - arkstokens/status
   verbs:

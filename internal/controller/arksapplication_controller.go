@@ -38,11 +38,11 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
 
-	arksv1 "github.com/scitix/arks/api/v1"
+	arksv1 "github.com/arks-ai/arks/api/v1"
 )
 
 const (
-	arksApplicationControllerFinalizer  = "application.arks.scitix.ai/controller"
+	arksApplicationControllerFinalizer  = "application.arks.ai/controller"
 	arksApplicationModelVolumeName      = "models"
 	arksApplicationModelVolumeMountPath = "/models"
 	arksApplicationModelVolumeSubPath   = "models"
@@ -56,9 +56,9 @@ type ArksApplicationReconciler struct {
 	Scheme     *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksapplications,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksapplications/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksapplications/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arks.ai,resources=arksapplications,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arks.ai,resources=arksapplications/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arks.ai,resources=arksapplications/finalizers,verbs=update
 // +kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
@@ -535,7 +535,7 @@ func getApplicationImage(application *arksv1.ArksApplication) (string, error) {
 	case string(arksv1.ArksRuntimeSGLang):
 		return "lmsysorg/sglang:v0.4.5-cu124", nil
 	case string(arksv1.ArksRuntimeDynamo):
-		return "registry-ap-southeast.scitix.ai/k8s/dynamo:vllm", nil
+		return "scitixai/k8s/dynamo:vllm", nil
 		// return "docker.io/scitixai/dynamo:vllm", nil
 	default:
 		// never reach here

@@ -32,7 +32,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - arks.scitix.ai
+  - arks.ai
   resources:
   - arksapplications
   - arksendpoints
@@ -48,7 +48,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - arks.scitix.ai
+  - arks.ai
   resources:
   - arksapplications/finalizers
   - arksendpoints/finalizers
@@ -58,7 +58,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - arks.scitix.ai
+  - arks.ai
   resources:
   - arksapplications/status
   - arksendpoints/status

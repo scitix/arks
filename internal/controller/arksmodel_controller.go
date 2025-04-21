@@ -31,11 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	arksv1 "github.com/scitix/arks/api/v1"
+	arksv1 "github.com/arks-ai/arks/api/v1"
 )
 
 const (
-	arksModelControllerFinalizer = "model.arks.scitix.ai/controller"
+	arksModelControllerFinalizer = "model.arks.ai/controller"
 )
 
 // ArksModelReconciler reconciles a ArksModel object
@@ -45,9 +45,9 @@ type ArksModelReconciler struct {
 	Scheme     *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksmodels,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksmodels/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksmodels/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arks.ai,resources=arksmodels,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arks.ai,resources=arksmodels/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arks.ai,resources=arksmodels/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=create;get;list;watch;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=create;get;list;watch;update;patch;delete
 
@@ -252,7 +252,7 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 							Containers: []corev1.Container{
 								{
 									Name:    "worker",
-									Image:   "registry-ap-southeast.scitix.ai/k8s/arks-scripts:v0.1.0",
+									Image:   "scitixai/arks-scripts:v0.1.0",
 									Command: []string{"/bin/bash", "-c", "python3 /scripts/download.py"},
 									Env:     envs,
 
