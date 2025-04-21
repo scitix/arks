@@ -104,6 +104,7 @@ func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *
 			s.collector.RecordTokenUsage(qos.Namespace, qos.User, model, promptTokens, completionTokens)
 			s.collector.RecordRespProcessingTime(qos.Namespace, qos.User, model, float64(timing.duration.Milliseconds()))
 			s.processingTimes.Delete(requestID)
+			klog.V(5).InfoS("process response", "requestID", requestID, "input", promptTokens, "output", completionTokens, "duration", timing.duration)
 		}
 		timing.startTime = time.Now()
 	}()

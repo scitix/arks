@@ -120,7 +120,7 @@ func initFlags(s *Settings) {
 	flag.IntVar(&s.Metrics.Port, "metrics.port", 8080, "Prometheus metrics port")
 
 	// TODO: klog level set
-	// klog.InitFlags(flag.CommandLine)
+	klog.InitFlags(flag.CommandLine)
 	initRedisFlags(s)
 	flag.Parse()
 }
@@ -224,7 +224,7 @@ func main() {
 
 	extProcPb.RegisterExternalProcessorServer(s, gateway.NewServer(ratelimiter, quotaService, provider))
 	healthPb.RegisterHealthServer(s, gateway.NewHealthCheckServer())
-	
+
 	// metrics server
 	startMetricsServer(settings.Metrics.Port)
 	// shutdown graceful
@@ -301,7 +301,6 @@ func createConfigProvider(s *ProviderSettings) (qosconfig.ConfigProvider, error)
 	}
 	return nil, fmt.Errorf("invalid config type: %s", s.Type)
 }
-
 
 func startMetricsServer(port int) {
 	mux := http.NewServeMux()
