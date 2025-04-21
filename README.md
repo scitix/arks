@@ -56,17 +56,17 @@
 
 ### Installation
 ```bash
-git clone https://github.com/arks-ai/arks.git
+git clone https://github.com/scitix/arks.git
 cd arks
 
 # Install envoy gateway, lws dependencies
-kubectl create -k config/dependency
+kubectl create -f dist/dependency.yaml
 
-# Install arks components
-kubectl create -k config/default
+# Install arks operator
+kubectl create -f dist/operator.yaml
 
-# Install gateway plugins
-kubectl create -k config/gateway
+# Install arks gateway plugins
+kubectl create -f dist/gateway.yaml
 ```
 
 verification:
@@ -142,7 +142,7 @@ ENDPOINT="localhost:8888"
 Curl the example app through Envoy proxy:
 
 ``` bash
-curl http://${ENDPOINT}:8888/v1/chat/completions -k \
+curl http://${ENDPOINT}/v1/chat/completions -k \
   -H "Authorization: Bearer sk-test123456" \
   -d '{"model": "qwen-7b", "messages": [{"role": "user", "content": "Hello, who are you?"}]}'
 ```
@@ -177,9 +177,17 @@ Expected response
 ### Clean-Up
 ```bash
 kubectl delete -f examples/quickstart/quickstart.yaml --ignore-not-found=true
-kubectl delete -k config/gateway
-kubectl delete -k config/default
-kubectl delete -k config/dependency
+kubectl delete -f dist/gateway.yaml
+kubectl delete -f dist/operator.yaml
+kubectl delete -f dist/dependency.yaml
+```
+
+## Build
+It is recommended to compile ARKS using Docker. Here are the relevant commands:
+```
+make docker-build-operator
+make docker-build-gateway
+make docker-build-scripts
 ```
 
 ## License
