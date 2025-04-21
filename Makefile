@@ -25,7 +25,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 .PHONY: all
-all: bin
+all: build-manager build-gateway
 
 ##@ General
 
@@ -96,12 +96,12 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 ##@ Build
 
-.PHONY: bin
-bin: manifests generate fmt vet ## Build manager binary.
+.PHONY: build-manager
+build-manager: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
-.PHONY: gateway-bin
-gateway-bin: fmt vet ## Build gateway binary.
+.PHONY: build-gateway
+build-gateway: fmt vet ## Build gateway binary.
 	go build -o bin/gateway cmd/gateway/main.go
 
 .PHONY: run
