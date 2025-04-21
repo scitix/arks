@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/scitix/arks/test/utils"
+	"github.com/arks-ai/arks/test/utils"
 )
 
 var (

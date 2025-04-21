@@ -27,7 +27,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	arksv1 "github.com/scitix/arks/api/v1"
+	arksv1 "github.com/arks-ai/arks/api/v1"
 )
 
 var _ = Describe("ArksEndpoint Controller", func() {
