@@ -25,7 +25,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 .PHONY: all
-all: build-manager build-gateway
+all: build-operator build-gateway
 
 ##@ General
 
@@ -96,16 +96,16 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 ##@ Build
 
-.PHONY: build-manager
-build-manager: manifests generate fmt vet ## Build manager binary.
+.PHONY: build-operator
+build-operator: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 .PHONY: build-gateway
 build-gateway: fmt vet ## Build gateway binary.
 	go build -o bin/gateway cmd/gateway/main.go
 
-.PHONY: run
-run: manifests generate fmt vet ## Run a controller from your host.
+.PHONY: run-operator
+run-operator: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
@@ -119,22 +119,28 @@ define push_image
 	$(CONTAINER_TOOL) push ${REPO}/$(1):${VERSION}
 endef
 
-
-.PHONY: docker-build
-docker-build: ## Build docker image with the manager.
+.PHONY: docker-build-operator
+docker-build-operator: ## Build docker image with the operator.
 	$(call build_and_tag,arks-operator,Dockerfile)
 
-.PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+.PHONY: docker-push-operator
+docker-push-operator: ## Push docker image with the operator.
 	$(call push_image,arks-operator)
 
+.PHONY: docker-build-scripts
+docker-build-scripts: ## Build docker image with the scripts.
+	$(call build_and_tag,arks-scripts,Dockerfile.scripts)
+
+.PHONY: docker-push-scripts
+docker-push-scripts: ## Push docker image with the scripts.
+	$(call push_image,arks-scripts)
 
 .PHONY: docker-build-gateway
-docker-build-gateway: ## Build docker image with the manager.
+docker-build-gateway: ## Build docker image with the gateway.
 	$(call build_and_tag,arks-gateway-plugins,Dockerfile.gateway)
 
 .PHONY: docker-push-gateway
-docker-push-gateway: ## Push docker image with the manager.
+docker-push-gateway: ## Push docker image with the gateway.
 	$(call push_image,arks-gateway-plugins)
 
 
@@ -159,7 +165,9 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
 	mkdir -p dist
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default > dist/install.yaml
+	$(KUSTOMIZE) build config/default > dist/operator.yaml
+	$(KUSTOMIZE) build config/gateway > dist/gateway.yaml
+	$(KUSTOMIZE) build config/dependency > dist/dependency.yaml
 
 ##@ Deployment
 
@@ -175,13 +183,23 @@ install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
+.PHONY: deploy-dependency
+deploy-dependency: kustomize ## Deploy dependency to the K8s cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/dependency | $(KUBECTL) apply -f -
+
+.PHONY: undeploy-dependency
+undeploy-dependency: kustomize ## Undeploy dependency from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/dependency | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/gateway | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
+	$(KUSTOMIZE) build config/gateway | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 ##@ Dependencies

@@ -1,12 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+    control-plane: controller-manager
+  name: arks-operator-system
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: arksapplications.arks.scitix.ai
+  name: arksapplications.arks.ai
 spec:
-  group: arks.scitix.ai
+  group: arks.ai
   names:
     kind: ArksApplication
     listKind: ArksApplicationList
@@ -3244,3 +3252,3509 @@ spec:
     storage: true
     subresources:
       status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: arksendpoints.arks.ai
+spec:
+  group: arks.ai
+  names:
+    kind: ArksEndpoint
+    listKind: ArksEndpointList
+    plural: arksendpoints
+    shortNames:
+    - aep
+    singular: arksendpoint
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .spec.defaultWeight
+      name: Default Weight
+      type: integer
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: ArksEndpoint is the Schema for the arksendpoints API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ArksEndpointSpec defines the desired state of ArksEndpoint.
+            properties:
+              defaultWeight:
+                default: 1
+                format: int32
+                minimum: 0
+                type: integer
+              gatewayRef:
+                description: |-
+                  ParentReference identifies an API object (usually a Gateway) that can be considered
+                  a parent of this resource (usually a route). There are two kinds of parent resources
+                  with "Core" support:
+
+                  * Gateway (Gateway conformance profile)
+                  * Service (Mesh conformance profile, ClusterIP Services only)
+
+                  This API may be extended in the future to support additional kinds of parent
+                  resources.
+
+                  The API object must be valid in the cluster; the Group and Kind must
+                  be registered in the cluster for this reference to be valid.
+                properties:
+                  group:
+                    default: gateway.networking.k8s.io
+                    description: |-
+                      Group is the group of the referent.
+                      When unspecified, "gateway.networking.k8s.io" is inferred.
+                      To set the core API group (such as for a "Service" kind referent),
+                      Group must be explicitly set to "" (empty string).
+
+                      Support: Core
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: Gateway
+                    description: |-
+                      Kind is kind of the referent.
+
+                      There are two kinds of parent resources with "Core" support:
+
+                      * Gateway (Gateway conformance profile)
+                      * Service (Mesh conformance profile, ClusterIP Services only)
+
+                      Support for other resources is Implementation-Specific.
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: |-
+                      Name is the name of the referent.
+
+                      Support: Core
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the referent. When unspecified, this refers
+                      to the local namespace of the Route.
+
+                      Note that there are specific rules for ParentRefs which cross namespace
+                      boundaries. Cross-namespace references are only valid if they are explicitly
+                      allowed by something in the namespace they are referring to. For example:
+                      Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                      generic way to enable any other kind of cross-namespace reference.
+
+                      <gateway:experimental:description>
+                      ParentRefs from a Route to a Service in the same namespace are "producer"
+                      routes, which apply default routing rules to inbound connections from
+                      any namespace to the Service.
+
+                      ParentRefs from a Route to a Service in a different namespace are
+                      "consumer" routes, and these routing rules are only applied to outbound
+                      connections originating from the same namespace as the Route, for which
+                      the intended destination of the connections are a Service targeted as a
+                      ParentRef of the Route.
+                      </gateway:experimental:description>
+
+                      Support: Core
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  port:
+                    description: |-
+                      Port is the network port this Route targets. It can be interpreted
+                      differently based on the type of parent resource.
+
+                      When the parent resource is a Gateway, this targets all listeners
+                      listening on the specified port that also support this kind of Route(and
+                      select this Route). It's not recommended to set `Port` unless the
+                      networking behaviors specified in a Route must apply to a specific port
+                      as opposed to a listener(s) whose port(s) may be changed. When both Port
+                      and SectionName are specified, the name and port of the selected listener
+                      must match both specified values.
+
+                      <gateway:experimental:description>
+                      When the parent resource is a Service, this targets a specific port in the
+                      Service spec. When both Port (experimental) and SectionName are specified,
+                      the name and port of the selected port must match both specified values.
+                      </gateway:experimental:description>
+
+                      Implementations MAY choose to support other parent resources.
+                      Implementations supporting other types of parent resources MUST clearly
+                      document how/if Port is interpreted.
+
+                      For the purpose of status, an attachment is considered successful as
+                      long as the parent resource accepts it partially. For example, Gateway
+                      listeners can restrict which Routes can attach to them by Route kind,
+                      namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                      from the referencing Route, the Route MUST be considered successfully
+                      attached. If no Gateway listeners accept attachment from this Route,
+                      the Route MUST be considered detached from the Gateway.
+
+                      Support: Extended
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                  sectionName:
+                    description: |-
+                      SectionName is the name of a section within the target resource. In the
+                      following resources, SectionName is interpreted as the following:
+
+                      * Gateway: Listener name. When both Port (experimental) and SectionName
+                      are specified, the name and port of the selected listener must match
+                      both specified values.
+                      * Service: Port name. When both Port (experimental) and SectionName
+                      are specified, the name and port of the selected listener must match
+                      both specified values.
+
+                      Implementations MAY choose to support attaching Routes to other resources.
+                      If that is the case, they MUST clearly document how SectionName is
+                      interpreted.
+
+                      When unspecified (empty string), this will reference the entire resource.
+                      For the purpose of status, an attachment is considered successful if at
+                      least one section in the parent resource accepts it. For example, Gateway
+                      listeners can restrict which Routes can attach to them by Route kind,
+                      namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                      the referencing Route, the Route MUST be considered successfully
+                      attached. If no Gateway listeners accept attachment from this Route, the
+                      Route MUST be considered detached from the Gateway.
+
+                      Support: Core
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+              matchConfigs:
+                default:
+                - path:
+                    type: PathPrefix
+                    value: /
+                items:
+                  description: "HTTPRouteMatch defines the predicate used to match
+                    requests to a given\naction. Multiple match types are ANDed together,
+                    i.e. the match will\nevaluate to true only if all conditions are
+                    satisfied.\n\nFor example, the match below will match a HTTP request
+                    only if its path\nstarts with `/foo` AND it contains the `version:
+                    v1` header:\n\n```\nmatch:\n\n\tpath:\n\t  value: \"/foo\"\n\theaders:\n\t-
+                    name: \"version\"\n\t  value \"v1\"\n\n```"
+                  properties:
+                    headers:
+                      description: |-
+                        Headers specifies HTTP request header matchers. Multiple match values are
+                        ANDed together, meaning, a request must match all the specified headers
+                        to select the route.
+                      items:
+                        description: |-
+                          HTTPHeaderMatch describes how to select a HTTP route by matching HTTP request
+                          headers.
+                        properties:
+                          name:
+                            description: |-
+                              Name is the name of the HTTP Header to be matched. Name matching MUST be
+                              case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                              If multiple entries specify equivalent header names, only the first
+                              entry with an equivalent name MUST be considered for a match. Subsequent
+                              entries with an equivalent header name MUST be ignored. Due to the
+                              case-insensitivity of header names, "foo" and "Foo" are considered
+                              equivalent.
+
+                              When a header is repeated in an HTTP request, it is
+                              implementation-specific behavior as to how this is represented.
+                              Generally, proxies should follow the guidance from the RFC:
+                              https://www.rfc-editor.org/rfc/rfc7230.html#section-3.2.2 regarding
+                              processing a repeated header, with special handling for "Set-Cookie".
+                            maxLength: 256
+                            minLength: 1
+                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                            type: string
+                          type:
+                            default: Exact
+                            description: |-
+                              Type specifies how to match against the value of the header.
+
+                              Support: Core (Exact)
+
+                              Support: Implementation-specific (RegularExpression)
+
+                              Since RegularExpression HeaderMatchType has implementation-specific
+                              conformance, implementations can support POSIX, PCRE or any other dialects
+                              of regular expressions. Please read the implementation's documentation to
+                              determine the supported dialect.
+                            enum:
+                            - Exact
+                            - RegularExpression
+                            type: string
+                          value:
+                            description: Value is the value of HTTP Header to be matched.
+                            maxLength: 4096
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - value
+                        type: object
+                      maxItems: 16
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                    method:
+                      description: |-
+                        Method specifies HTTP method matcher.
+                        When specified, this route will be matched only if the request has the
+                        specified method.
+
+                        Support: Extended
+                      enum:
+                      - GET
+                      - HEAD
+                      - POST
+                      - PUT
+                      - DELETE
+                      - CONNECT
+                      - OPTIONS
+                      - TRACE
+                      - PATCH
+                      type: string
+                    path:
+                      default:
+                        type: PathPrefix
+                        value: /
+                      description: |-
+                        Path specifies a HTTP request path matcher. If this field is not
+                        specified, a default prefix match on the "/" path is provided.
+                      properties:
+                        type:
+                          default: PathPrefix
+                          description: |-
+                            Type specifies how to match against the path Value.
+
+                            Support: Core (Exact, PathPrefix)
+
+                            Support: Implementation-specific (RegularExpression)
+                          enum:
+                          - Exact
+                          - PathPrefix
+                          - RegularExpression
+                          type: string
+                        value:
+                          default: /
+                          description: Value of the HTTP path to match against.
+                          maxLength: 1024
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: value must be an absolute path and start with '/'
+                          when type one of ['Exact', 'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? self.value.startsWith(''/'')
+                          : true'
+                      - message: must not contain '//' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''//'')
+                          : true'
+                      - message: must not contain '/./' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''/./'')
+                          : true'
+                      - message: must not contain '/../' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''/../'')
+                          : true'
+                      - message: must not contain '%2f' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''%2f'')
+                          : true'
+                      - message: must not contain '%2F' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''%2F'')
+                          : true'
+                      - message: must not contain '#' when type one of ['Exact', 'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.contains(''#'')
+                          : true'
+                      - message: must not end with '/..' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.endsWith(''/..'')
+                          : true'
+                      - message: must not end with '/.' when type one of ['Exact',
+                          'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.endsWith(''/.'')
+                          : true'
+                      - message: type must be one of ['Exact', 'PathPrefix', 'RegularExpression']
+                        rule: self.type in ['Exact','PathPrefix'] || self.type ==
+                          'RegularExpression'
+                      - message: must only contain valid characters (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
+                          for types ['Exact', 'PathPrefix']
+                        rule: '(self.type in [''Exact'',''PathPrefix'']) ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
+                          : true'
+                    queryParams:
+                      description: |-
+                        QueryParams specifies HTTP query parameter matchers. Multiple match
+                        values are ANDed together, meaning, a request must match all the
+                        specified query parameters to select the route.
+
+                        Support: Extended
+                      items:
+                        description: |-
+                          HTTPQueryParamMatch describes how to select a HTTP route by matching HTTP
+                          query parameters.
+                        properties:
+                          name:
+                            description: |-
+                              Name is the name of the HTTP query param to be matched. This must be an
+                              exact string match. (See
+                              https://tools.ietf.org/html/rfc7230#section-2.7.3).
+
+                              If multiple entries specify equivalent query param names, only the first
+                              entry with an equivalent name MUST be considered for a match. Subsequent
+                              entries with an equivalent query param name MUST be ignored.
+
+                              If a query param is repeated in an HTTP request, the behavior is
+                              purposely left undefined, since different data planes have different
+                              capabilities. However, it is *recommended* that implementations should
+                              match against the first value of the param if the data plane supports it,
+                              as this behavior is expected in other load balancing contexts outside of
+                              the Gateway API.
+
+                              Users SHOULD NOT route traffic based on repeated query params to guard
+                              themselves against potential differences in the implementations.
+                            maxLength: 256
+                            minLength: 1
+                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                            type: string
+                          type:
+                            default: Exact
+                            description: |-
+                              Type specifies how to match against the value of the query parameter.
+
+                              Support: Extended (Exact)
+
+                              Support: Implementation-specific (RegularExpression)
+
+                              Since RegularExpression QueryParamMatchType has Implementation-specific
+                              conformance, implementations can support POSIX, PCRE or any other
+                              dialects of regular expressions. Please read the implementation's
+                              documentation to determine the supported dialect.
+                            enum:
+                            - Exact
+                            - RegularExpression
+                            type: string
+                          value:
+                            description: Value is the value of HTTP query param to
+                              be matched.
+                            maxLength: 1024
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        - value
+                        type: object
+                      maxItems: 16
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
+                  type: object
+                maxItems: 16
+                type: array
+              routeConfigs:
+                items:
+                  description: |-
+                    HTTPBackendRef defines how a HTTPRoute forwards a HTTP request.
+
+                    Note that when a namespace different than the local namespace is specified, a
+                    ReferenceGrant object is required in the referent namespace to allow that
+                    namespace's owner to accept the reference. See the ReferenceGrant
+                    documentation for details.
+
+                    <gateway:experimental:description>
+
+                    When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                    honor the appProtocol field if it is set for the target Service Port.
+
+                    Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                    Standard Application Protocols defined in KEP-3726.
+
+                    If a Service appProtocol isn't specified, an implementation MAY infer the
+                    backend protocol through its own means. Implementations MAY infer the
+                    protocol from the Route type referring to the backend Service.
+
+                    If a Route is not able to send traffic to the backend using the specified
+                    protocol then the backend is considered invalid. Implementations MUST set the
+                    "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
+                    </gateway:experimental:description>
+                  properties:
+                    filters:
+                      description: |-
+                        Filters defined at this level should be executed if and only if the
+                        request is being forwarded to the backend defined here.
+
+                        Support: Implementation-specific (For broader support of filters, use the
+                        Filters field in HTTPRouteRule.)
+                      items:
+                        description: |-
+                          HTTPRouteFilter defines processing steps that must be completed during the
+                          request or response lifecycle. HTTPRouteFilters are meant as an extension
+                          point to express processing that may be done in Gateway implementations. Some
+                          examples include request or response modification, implementing
+                          authentication strategies, rate-limiting, and traffic shaping. API
+                          guarantee/conformance is defined based on the type of the filter.
+                        properties:
+                          extensionRef:
+                            description: |-
+                              ExtensionRef is an optional, implementation-specific extension to the
+                              "filter" behavior.  For example, resource "myroutefilter" in group
+                              "networking.example.net"). ExtensionRef MUST NOT be used for core and
+                              extended filters.
+
+                              This filter can be used multiple times within the same rule.
+
+                              Support: Implementation-specific
+                            properties:
+                              group:
+                                description: |-
+                                  Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                  When unspecified or empty string, core API group is inferred.
+                                maxLength: 253
+                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent. For example
+                                  "HTTPRoute" or "Service".
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          requestHeaderModifier:
+                            description: |-
+                              RequestHeaderModifier defines a schema for a filter that modifies request
+                              headers.
+
+                              Support: Core
+                            properties:
+                              add:
+                                description: |-
+                                  Add adds the given header(s) (name, value) to the request
+                                  before the action. It appends to any existing values associated
+                                  with the header name.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    add:
+                                    - name: "my-header"
+                                      value: "bar,baz"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo,bar,baz
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: |-
+                                  Remove the given header(s) from the HTTP request before the action. The
+                                  value of Remove is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see
+                                  https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header1: foo
+                                    my-header2: bar
+                                    my-header3: baz
+
+                                  Config:
+                                    remove: ["my-header1", "my-header3"]
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header2: bar
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-type: set
+                              set:
+                                description: |-
+                                  Set overwrites the request with the given header (name, value)
+                                  before the action.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    set:
+                                    - name: "my-header"
+                                      value: "bar"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: bar
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
+                          requestMirror:
+                            description: |-
+                              RequestMirror defines a schema for a filter that mirrors requests.
+                              Requests are sent to the specified destination, but responses from
+                              that destination are ignored.
+
+                              This filter can be used multiple times within the same rule. Note that
+                              not all implementations will be able to support mirroring to multiple
+                              backends.
+
+                              Support: Extended
+
+                              <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
+                            properties:
+                              backendRef:
+                                description: |-
+                                  BackendRef references a resource where mirrored requests are sent.
+
+                                  Mirrored requests must be sent only to a single destination endpoint
+                                  within this BackendRef, irrespective of how many endpoints are present
+                                  within this BackendRef.
+
+                                  If the referent cannot be found, this BackendRef is invalid and must be
+                                  dropped from the Gateway. The controller must ensure the "ResolvedRefs"
+                                  condition on the Route status is set to `status: False` and not configure
+                                  this backend in the underlying implementation.
+
+                                  If there is a cross-namespace reference to an *existing* object
+                                  that is not allowed by a ReferenceGrant, the controller must ensure the
+                                  "ResolvedRefs"  condition on the Route is set to `status: False`,
+                                  with the "RefNotPermitted" reason and not configure this backend in the
+                                  underlying implementation.
+
+                                  In either error case, the Message of the `ResolvedRefs` Condition
+                                  should be used to provide more detail about the problem.
+
+                                  Support: Extended for Kubernetes Service
+
+                                  Support: Implementation-specific for any other resource
+                                properties:
+                                  group:
+                                    default: ""
+                                    description: |-
+                                      Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                      When unspecified or empty string, core API group is inferred.
+                                    maxLength: 253
+                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                  kind:
+                                    default: Service
+                                    description: |-
+                                      Kind is the Kubernetes resource kind of the referent. For example
+                                      "Service".
+
+                                      Defaults to "Service" when not specified.
+
+                                      ExternalName services can refer to CNAME DNS records that may live
+                                      outside of the cluster and as such are difficult to reason about in
+                                      terms of conformance. They also may not be safe to forward to (see
+                                      CVE-2021-25740 for more information). Implementations SHOULD NOT
+                                      support ExternalName Services.
+
+                                      Support: Core (Services with a type other than ExternalName)
+
+                                      Support: Implementation-specific (Services with type ExternalName)
+                                    maxLength: 63
+                                    minLength: 1
+                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referent.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace of the backend. When unspecified, the local
+                                      namespace is inferred.
+
+                                      Note that when a namespace different than the local namespace is specified,
+                                      a ReferenceGrant object is required in the referent namespace to allow that
+                                      namespace's owner to accept the reference. See the ReferenceGrant
+                                      documentation for details.
+
+                                      Support: Core
+                                    maxLength: 63
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                    type: string
+                                  port:
+                                    description: |-
+                                      Port specifies the destination port number to use for this resource.
+                                      Port is required when the referent is a Kubernetes Service. In this
+                                      case, the port number is the service port number, not the target port.
+                                      For other resources, destination port might be derived from the referent
+                                      resource or this field.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 1
+                                    type: integer
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-validations:
+                                - message: Must have port for Service reference
+                                  rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                                    ? has(self.port) : true'
+                              fraction:
+                                description: |-
+                                  Fraction represents the fraction of requests that should be
+                                  mirrored to BackendRef.
+
+                                  Only one of Fraction or Percent may be specified. If neither field
+                                  is specified, 100% of requests will be mirrored.
+
+                                  <gateway:experimental>
+                                properties:
+                                  denominator:
+                                    default: 100
+                                    format: int32
+                                    minimum: 1
+                                    type: integer
+                                  numerator:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - numerator
+                                type: object
+                                x-kubernetes-validations:
+                                - message: numerator must be less than or equal to
+                                    denominator
+                                  rule: self.numerator <= self.denominator
+                              percent:
+                                description: |-
+                                  Percent represents the percentage of requests that should be
+                                  mirrored to BackendRef. Its minimum value is 0 (indicating 0% of
+                                  requests) and its maximum value is 100 (indicating 100% of requests).
+
+                                  Only one of Fraction or Percent may be specified. If neither field
+                                  is specified, 100% of requests will be mirrored.
+
+                                  <gateway:experimental>
+                                format: int32
+                                maximum: 100
+                                minimum: 0
+                                type: integer
+                            required:
+                            - backendRef
+                            type: object
+                          requestRedirect:
+                            description: |-
+                              RequestRedirect defines a schema for a filter that responds to the
+                              request with an HTTP redirection.
+
+                              Support: Core
+                            properties:
+                              hostname:
+                                description: |-
+                                  Hostname is the hostname to be used in the value of the `Location`
+                                  header in the response.
+                                  When empty, the hostname in the `Host` header of the request is used.
+
+                                  Support: Core
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              path:
+                                description: |-
+                                  Path defines parameters used to modify the path of the incoming request.
+                                  The modified path is then used to construct the `Location` header. When
+                                  empty, the request path is used as-is.
+
+                                  Support: Extended
+                                properties:
+                                  replaceFullPath:
+                                    description: |-
+                                      ReplaceFullPath specifies the value with which to replace the full path
+                                      of a request during a rewrite or redirect.
+                                    maxLength: 1024
+                                    type: string
+                                  replacePrefixMatch:
+                                    description: |-
+                                      ReplacePrefixMatch specifies the value with which to replace the prefix
+                                      match of a request during a rewrite or redirect. For example, a request
+                                      to "/foo/bar" with a prefix match of "/foo" and a ReplacePrefixMatch
+                                      of "/xyz" would be modified to "/xyz/bar".
+
+                                      Note that this matches the behavior of the PathPrefix match type. This
+                                      matches full path elements. A path element refers to the list of labels
+                                      in the path split by the `/` separator. When specified, a trailing `/` is
+                                      ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+                                      match the prefix `/abc`, but the path `/abcd` would not.
+
+                                      ReplacePrefixMatch is only compatible with a `PathPrefix` HTTPRouteMatch.
+                                      Using any other HTTPRouteMatch type on the same HTTPRouteRule will result in
+                                      the implementation setting the Accepted Condition for the Route to `status: False`.
+
+                                      Request Path | Prefix Match | Replace Prefix | Modified Path
+                                    maxLength: 1024
+                                    type: string
+                                  type:
+                                    description: |-
+                                      Type defines the type of path modifier. Additional types may be
+                                      added in a future release of the API.
+
+                                      Note that values may be added to this enum, implementations
+                                      must ensure that unknown values will not cause a crash.
+
+                                      Unknown values here must result in the implementation setting the
+                                      Accepted Condition for the Route to `status: False`, with a
+                                      Reason of `UnsupportedValue`.
+                                    enum:
+                                    - ReplaceFullPath
+                                    - ReplacePrefixMatch
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: replaceFullPath must be specified when
+                                    type is set to 'ReplaceFullPath'
+                                  rule: 'self.type == ''ReplaceFullPath'' ? has(self.replaceFullPath)
+                                    : true'
+                                - message: type must be 'ReplaceFullPath' when replaceFullPath
+                                    is set
+                                  rule: 'has(self.replaceFullPath) ? self.type ==
+                                    ''ReplaceFullPath'' : true'
+                                - message: replacePrefixMatch must be specified when
+                                    type is set to 'ReplacePrefixMatch'
+                                  rule: 'self.type == ''ReplacePrefixMatch'' ? has(self.replacePrefixMatch)
+                                    : true'
+                                - message: type must be 'ReplacePrefixMatch' when
+                                    replacePrefixMatch is set
+                                  rule: 'has(self.replacePrefixMatch) ? self.type
+                                    == ''ReplacePrefixMatch'' : true'
+                              port:
+                                description: |-
+                                  Port is the port to be used in the value of the `Location`
+                                  header in the response.
+
+                                  If no port is specified, the redirect port MUST be derived using the
+                                  following rules:
+
+                                  * If redirect scheme is not-empty, the redirect port MUST be the well-known
+                                    port associated with the redirect scheme. Specifically "http" to port 80
+                                    and "https" to port 443. If the redirect scheme does not have a
+                                    well-known port, the listener port of the Gateway SHOULD be used.
+                                  * If redirect scheme is empty, the redirect port MUST be the Gateway
+                                    Listener port.
+
+                                  Implementations SHOULD NOT add the port number in the 'Location'
+                                  header in the following cases:
+
+                                  * A Location header that will use HTTP (whether that is determined via
+                                    the Listener protocol or the Scheme field) _and_ use port 80.
+                                  * A Location header that will use HTTPS (whether that is determined via
+                                    the Listener protocol or the Scheme field) _and_ use port 443.
+
+                                  Support: Extended
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              scheme:
+                                description: |-
+                                  Scheme is the scheme to be used in the value of the `Location` header in
+                                  the response. When empty, the scheme of the request is used.
+
+                                  Scheme redirects can affect the port of the redirect, for more information,
+                                  refer to the documentation for the port field of this filter.
+
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a crash.
+
+                                  Unknown values here must result in the implementation setting the
+                                  Accepted Condition for the Route to `status: False`, with a
+                                  Reason of `UnsupportedValue`.
+
+                                  Support: Extended
+                                enum:
+                                - http
+                                - https
+                                type: string
+                              statusCode:
+                                default: 302
+                                description: |-
+                                  StatusCode is the HTTP status code to be used in response.
+
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a crash.
+
+                                  Unknown values here must result in the implementation setting the
+                                  Accepted Condition for the Route to `status: False`, with a
+                                  Reason of `UnsupportedValue`.
+
+                                  Support: Core
+                                enum:
+                                - 301
+                                - 302
+                                type: integer
+                            type: object
+                          responseHeaderModifier:
+                            description: |-
+                              ResponseHeaderModifier defines a schema for a filter that modifies response
+                              headers.
+
+                              Support: Extended
+                            properties:
+                              add:
+                                description: |-
+                                  Add adds the given header(s) (name, value) to the request
+                                  before the action. It appends to any existing values associated
+                                  with the header name.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    add:
+                                    - name: "my-header"
+                                      value: "bar,baz"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo,bar,baz
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: |-
+                                  Remove the given header(s) from the HTTP request before the action. The
+                                  value of Remove is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see
+                                  https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header1: foo
+                                    my-header2: bar
+                                    my-header3: baz
+
+                                  Config:
+                                    remove: ["my-header1", "my-header3"]
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header2: bar
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-type: set
+                              set:
+                                description: |-
+                                  Set overwrites the request with the given header (name, value)
+                                  before the action.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    set:
+                                    - name: "my-header"
+                                      value: "bar"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: bar
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
+                          type:
+                            description: |-
+                              Type identifies the type of filter to apply. As with other API fields,
+                              types are classified into three conformance levels:
+
+                              - Core: Filter types and their corresponding configuration defined by
+                                "Support: Core" in this package, e.g. "RequestHeaderModifier". All
+                                implementations must support core filters.
+
+                              - Extended: Filter types and their corresponding configuration defined by
+                                "Support: Extended" in this package, e.g. "RequestMirror". Implementers
+                                are encouraged to support extended filters.
+
+                              - Implementation-specific: Filters that are defined and supported by
+                                specific vendors.
+                                In the future, filters showing convergence in behavior across multiple
+                                implementations will be considered for inclusion in extended or core
+                                conformance levels. Filter-specific configuration for such filters
+                                is specified using the ExtensionRef field. `Type` should be set to
+                                "ExtensionRef" for custom filters.
+
+                              Implementers are encouraged to define custom implementation types to
+                              extend the core API with implementation-specific behavior.
+
+                              If a reference to a custom filter type cannot be resolved, the filter
+                              MUST NOT be skipped. Instead, requests that would have been processed by
+                              that filter MUST receive a HTTP error response.
+
+                              Note that values may be added to this enum, implementations
+                              must ensure that unknown values will not cause a crash.
+
+                              Unknown values here must result in the implementation setting the
+                              Accepted Condition for the Route to `status: False`, with a
+                              Reason of `UnsupportedValue`.
+                            enum:
+                            - RequestHeaderModifier
+                            - ResponseHeaderModifier
+                            - RequestMirror
+                            - RequestRedirect
+                            - URLRewrite
+                            - ExtensionRef
+                            type: string
+                          urlRewrite:
+                            description: |-
+                              URLRewrite defines a schema for a filter that modifies a request during forwarding.
+
+                              Support: Extended
+                            properties:
+                              hostname:
+                                description: |-
+                                  Hostname is the value to be used to replace the Host header value during
+                                  forwarding.
+
+                                  Support: Extended
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              path:
+                                description: |-
+                                  Path defines a path rewrite.
+
+                                  Support: Extended
+                                properties:
+                                  replaceFullPath:
+                                    description: |-
+                                      ReplaceFullPath specifies the value with which to replace the full path
+                                      of a request during a rewrite or redirect.
+                                    maxLength: 1024
+                                    type: string
+                                  replacePrefixMatch:
+                                    description: |-
+                                      ReplacePrefixMatch specifies the value with which to replace the prefix
+                                      match of a request during a rewrite or redirect. For example, a request
+                                      to "/foo/bar" with a prefix match of "/foo" and a ReplacePrefixMatch
+                                      of "/xyz" would be modified to "/xyz/bar".
+
+                                      Note that this matches the behavior of the PathPrefix match type. This
+                                      matches full path elements. A path element refers to the list of labels
+                                      in the path split by the `/` separator. When specified, a trailing `/` is
+                                      ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+                                      match the prefix `/abc`, but the path `/abcd` would not.
+
+                                      ReplacePrefixMatch is only compatible with a `PathPrefix` HTTPRouteMatch.
+                                      Using any other HTTPRouteMatch type on the same HTTPRouteRule will result in
+                                      the implementation setting the Accepted Condition for the Route to `status: False`.
+
+                                      Request Path | Prefix Match | Replace Prefix | Modified Path
+                                    maxLength: 1024
+                                    type: string
+                                  type:
+                                    description: |-
+                                      Type defines the type of path modifier. Additional types may be
+                                      added in a future release of the API.
+
+                                      Note that values may be added to this enum, implementations
+                                      must ensure that unknown values will not cause a crash.
+
+                                      Unknown values here must result in the implementation setting the
+                                      Accepted Condition for the Route to `status: False`, with a
+                                      Reason of `UnsupportedValue`.
+                                    enum:
+                                    - ReplaceFullPath
+                                    - ReplacePrefixMatch
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: replaceFullPath must be specified when
+                                    type is set to 'ReplaceFullPath'
+                                  rule: 'self.type == ''ReplaceFullPath'' ? has(self.replaceFullPath)
+                                    : true'
+                                - message: type must be 'ReplaceFullPath' when replaceFullPath
+                                    is set
+                                  rule: 'has(self.replaceFullPath) ? self.type ==
+                                    ''ReplaceFullPath'' : true'
+                                - message: replacePrefixMatch must be specified when
+                                    type is set to 'ReplacePrefixMatch'
+                                  rule: 'self.type == ''ReplacePrefixMatch'' ? has(self.replacePrefixMatch)
+                                    : true'
+                                - message: type must be 'ReplacePrefixMatch' when
+                                    replacePrefixMatch is set
+                                  rule: 'has(self.replacePrefixMatch) ? self.type
+                                    == ''ReplacePrefixMatch'' : true'
+                            type: object
+                        required:
+                        - type
+                        type: object
+                        x-kubernetes-validations:
+                        - message: filter.requestHeaderModifier must be nil if the
+                            filter.type is not RequestHeaderModifier
+                          rule: '!(has(self.requestHeaderModifier) && self.type !=
+                            ''RequestHeaderModifier'')'
+                        - message: filter.requestHeaderModifier must be specified
+                            for RequestHeaderModifier filter.type
+                          rule: '!(!has(self.requestHeaderModifier) && self.type ==
+                            ''RequestHeaderModifier'')'
+                        - message: filter.responseHeaderModifier must be nil if the
+                            filter.type is not ResponseHeaderModifier
+                          rule: '!(has(self.responseHeaderModifier) && self.type !=
+                            ''ResponseHeaderModifier'')'
+                        - message: filter.responseHeaderModifier must be specified
+                            for ResponseHeaderModifier filter.type
+                          rule: '!(!has(self.responseHeaderModifier) && self.type
+                            == ''ResponseHeaderModifier'')'
+                        - message: filter.requestMirror must be nil if the filter.type
+                            is not RequestMirror
+                          rule: '!(has(self.requestMirror) && self.type != ''RequestMirror'')'
+                        - message: filter.requestMirror must be specified for RequestMirror
+                            filter.type
+                          rule: '!(!has(self.requestMirror) && self.type == ''RequestMirror'')'
+                        - message: filter.requestRedirect must be nil if the filter.type
+                            is not RequestRedirect
+                          rule: '!(has(self.requestRedirect) && self.type != ''RequestRedirect'')'
+                        - message: filter.requestRedirect must be specified for RequestRedirect
+                            filter.type
+                          rule: '!(!has(self.requestRedirect) && self.type == ''RequestRedirect'')'
+                        - message: filter.urlRewrite must be nil if the filter.type
+                            is not URLRewrite
+                          rule: '!(has(self.urlRewrite) && self.type != ''URLRewrite'')'
+                        - message: filter.urlRewrite must be specified for URLRewrite
+                            filter.type
+                          rule: '!(!has(self.urlRewrite) && self.type == ''URLRewrite'')'
+                        - message: filter.extensionRef must be nil if the filter.type
+                            is not ExtensionRef
+                          rule: '!(has(self.extensionRef) && self.type != ''ExtensionRef'')'
+                        - message: filter.extensionRef must be specified for ExtensionRef
+                            filter.type
+                          rule: '!(!has(self.extensionRef) && self.type == ''ExtensionRef'')'
+                      maxItems: 16
+                      type: array
+                      x-kubernetes-validations:
+                      - message: May specify either httpRouteFilterRequestRedirect
+                          or httpRouteFilterRequestRewrite, but not both
+                        rule: '!(self.exists(f, f.type == ''RequestRedirect'') &&
+                          self.exists(f, f.type == ''URLRewrite''))'
+                      - message: May specify either httpRouteFilterRequestRedirect
+                          or httpRouteFilterRequestRewrite, but not both
+                        rule: '!(self.exists(f, f.type == ''RequestRedirect'') &&
+                          self.exists(f, f.type == ''URLRewrite''))'
+                      - message: RequestHeaderModifier filter cannot be repeated
+                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
+                          <= 1
+                      - message: ResponseHeaderModifier filter cannot be repeated
+                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
+                          <= 1
+                      - message: RequestRedirect filter cannot be repeated
+                        rule: self.filter(f, f.type == 'RequestRedirect').size() <=
+                          1
+                      - message: URLRewrite filter cannot be repeated
+                        rule: self.filter(f, f.type == 'URLRewrite').size() <= 1
+                    group:
+                      default: ""
+                      description: |-
+                        Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                        When unspecified or empty string, core API group is inferred.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      default: Service
+                      description: |-
+                        Kind is the Kubernetes resource kind of the referent. For example
+                        "Service".
+
+                        Defaults to "Service" when not specified.
+
+                        ExternalName services can refer to CNAME DNS records that may live
+                        outside of the cluster and as such are difficult to reason about in
+                        terms of conformance. They also may not be safe to forward to (see
+                        CVE-2021-25740 for more information). Implementations SHOULD NOT
+                        support ExternalName Services.
+
+                        Support: Core (Services with a type other than ExternalName)
+
+                        Support: Implementation-specific (Services with type ExternalName)
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the referent.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the backend. When unspecified, the local
+                        namespace is inferred.
+
+                        Note that when a namespace different than the local namespace is specified,
+                        a ReferenceGrant object is required in the referent namespace to allow that
+                        namespace's owner to accept the reference. See the ReferenceGrant
+                        documentation for details.
+
+                        Support: Core
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    port:
+                      description: |-
+                        Port specifies the destination port number to use for this resource.
+                        Port is required when the referent is a Kubernetes Service. In this
+                        case, the port number is the service port number, not the target port.
+                        For other resources, destination port might be derived from the referent
+                        resource or this field.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    weight:
+                      default: 1
+                      description: |-
+                        Weight specifies the proportion of requests forwarded to the referenced
+                        backend. This is computed as weight/(sum of all weights in this
+                        BackendRefs list). For non-zero values, there may be some epsilon from
+                        the exact proportion defined here depending on the precision an
+                        implementation supports. Weight is not a percentage and the sum of
+                        weights does not need to equal 100.
+
+                        If only one backend is specified and it has a weight greater than 0, 100%
+                        of the traffic is forwarded to that backend. If weight is set to 0, no
+                        traffic should be forwarded for this entry. If unspecified, weight
+                        defaults to 1.
+
+                        Support for this field varies based on the context where used.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: Must have port for Service reference
+                    rule: '(size(self.group) == 0 && self.kind == ''Service'') ? has(self.port)
+                      : true'
+                maxItems: 16
+                type: array
+            required:
+            - defaultWeight
+            - gatewayRef
+            type: object
+          status:
+            description: ArksEndpointStatus defines the observed state of ArksEndpoint.
+            properties:
+              routes:
+                description: INSERT ADDITIONAL STATUS FIELD - define observed state
+                  of cluster
+                items:
+                  description: |-
+                    HTTPBackendRef defines how a HTTPRoute forwards a HTTP request.
+
+                    Note that when a namespace different than the local namespace is specified, a
+                    ReferenceGrant object is required in the referent namespace to allow that
+                    namespace's owner to accept the reference. See the ReferenceGrant
+                    documentation for details.
+
+                    <gateway:experimental:description>
+
+                    When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                    honor the appProtocol field if it is set for the target Service Port.
+
+                    Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                    Standard Application Protocols defined in KEP-3726.
+
+                    If a Service appProtocol isn't specified, an implementation MAY infer the
+                    backend protocol through its own means. Implementations MAY infer the
+                    protocol from the Route type referring to the backend Service.
+
+                    If a Route is not able to send traffic to the backend using the specified
+                    protocol then the backend is considered invalid. Implementations MUST set the
+                    "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
+                    </gateway:experimental:description>
+                  properties:
+                    filters:
+                      description: |-
+                        Filters defined at this level should be executed if and only if the
+                        request is being forwarded to the backend defined here.
+
+                        Support: Implementation-specific (For broader support of filters, use the
+                        Filters field in HTTPRouteRule.)
+                      items:
+                        description: |-
+                          HTTPRouteFilter defines processing steps that must be completed during the
+                          request or response lifecycle. HTTPRouteFilters are meant as an extension
+                          point to express processing that may be done in Gateway implementations. Some
+                          examples include request or response modification, implementing
+                          authentication strategies, rate-limiting, and traffic shaping. API
+                          guarantee/conformance is defined based on the type of the filter.
+                        properties:
+                          extensionRef:
+                            description: |-
+                              ExtensionRef is an optional, implementation-specific extension to the
+                              "filter" behavior.  For example, resource "myroutefilter" in group
+                              "networking.example.net"). ExtensionRef MUST NOT be used for core and
+                              extended filters.
+
+                              This filter can be used multiple times within the same rule.
+
+                              Support: Implementation-specific
+                            properties:
+                              group:
+                                description: |-
+                                  Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                  When unspecified or empty string, core API group is inferred.
+                                maxLength: 253
+                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              kind:
+                                description: Kind is kind of the referent. For example
+                                  "HTTPRoute" or "Service".
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                type: string
+                              name:
+                                description: Name is the name of the referent.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                            required:
+                            - group
+                            - kind
+                            - name
+                            type: object
+                          requestHeaderModifier:
+                            description: |-
+                              RequestHeaderModifier defines a schema for a filter that modifies request
+                              headers.
+
+                              Support: Core
+                            properties:
+                              add:
+                                description: |-
+                                  Add adds the given header(s) (name, value) to the request
+                                  before the action. It appends to any existing values associated
+                                  with the header name.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    add:
+                                    - name: "my-header"
+                                      value: "bar,baz"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo,bar,baz
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: |-
+                                  Remove the given header(s) from the HTTP request before the action. The
+                                  value of Remove is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see
+                                  https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header1: foo
+                                    my-header2: bar
+                                    my-header3: baz
+
+                                  Config:
+                                    remove: ["my-header1", "my-header3"]
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header2: bar
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-type: set
+                              set:
+                                description: |-
+                                  Set overwrites the request with the given header (name, value)
+                                  before the action.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    set:
+                                    - name: "my-header"
+                                      value: "bar"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: bar
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
+                          requestMirror:
+                            description: |-
+                              RequestMirror defines a schema for a filter that mirrors requests.
+                              Requests are sent to the specified destination, but responses from
+                              that destination are ignored.
+
+                              This filter can be used multiple times within the same rule. Note that
+                              not all implementations will be able to support mirroring to multiple
+                              backends.
+
+                              Support: Extended
+
+                              <gateway:experimental:validation:XValidation:message="Only one of percent or fraction may be specified in HTTPRequestMirrorFilter",rule="!(has(self.percent) && has(self.fraction))">
+                            properties:
+                              backendRef:
+                                description: |-
+                                  BackendRef references a resource where mirrored requests are sent.
+
+                                  Mirrored requests must be sent only to a single destination endpoint
+                                  within this BackendRef, irrespective of how many endpoints are present
+                                  within this BackendRef.
+
+                                  If the referent cannot be found, this BackendRef is invalid and must be
+                                  dropped from the Gateway. The controller must ensure the "ResolvedRefs"
+                                  condition on the Route status is set to `status: False` and not configure
+                                  this backend in the underlying implementation.
+
+                                  If there is a cross-namespace reference to an *existing* object
+                                  that is not allowed by a ReferenceGrant, the controller must ensure the
+                                  "ResolvedRefs"  condition on the Route is set to `status: False`,
+                                  with the "RefNotPermitted" reason and not configure this backend in the
+                                  underlying implementation.
+
+                                  In either error case, the Message of the `ResolvedRefs` Condition
+                                  should be used to provide more detail about the problem.
+
+                                  Support: Extended for Kubernetes Service
+
+                                  Support: Implementation-specific for any other resource
+                                properties:
+                                  group:
+                                    default: ""
+                                    description: |-
+                                      Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                      When unspecified or empty string, core API group is inferred.
+                                    maxLength: 253
+                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                  kind:
+                                    default: Service
+                                    description: |-
+                                      Kind is the Kubernetes resource kind of the referent. For example
+                                      "Service".
+
+                                      Defaults to "Service" when not specified.
+
+                                      ExternalName services can refer to CNAME DNS records that may live
+                                      outside of the cluster and as such are difficult to reason about in
+                                      terms of conformance. They also may not be safe to forward to (see
+                                      CVE-2021-25740 for more information). Implementations SHOULD NOT
+                                      support ExternalName Services.
+
+                                      Support: Core (Services with a type other than ExternalName)
+
+                                      Support: Implementation-specific (Services with type ExternalName)
+                                    maxLength: 63
+                                    minLength: 1
+                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referent.
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: |-
+                                      Namespace is the namespace of the backend. When unspecified, the local
+                                      namespace is inferred.
+
+                                      Note that when a namespace different than the local namespace is specified,
+                                      a ReferenceGrant object is required in the referent namespace to allow that
+                                      namespace's owner to accept the reference. See the ReferenceGrant
+                                      documentation for details.
+
+                                      Support: Core
+                                    maxLength: 63
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                    type: string
+                                  port:
+                                    description: |-
+                                      Port specifies the destination port number to use for this resource.
+                                      Port is required when the referent is a Kubernetes Service. In this
+                                      case, the port number is the service port number, not the target port.
+                                      For other resources, destination port might be derived from the referent
+                                      resource or this field.
+                                    format: int32
+                                    maximum: 65535
+                                    minimum: 1
+                                    type: integer
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-validations:
+                                - message: Must have port for Service reference
+                                  rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                                    ? has(self.port) : true'
+                              fraction:
+                                description: |-
+                                  Fraction represents the fraction of requests that should be
+                                  mirrored to BackendRef.
+
+                                  Only one of Fraction or Percent may be specified. If neither field
+                                  is specified, 100% of requests will be mirrored.
+
+                                  <gateway:experimental>
+                                properties:
+                                  denominator:
+                                    default: 100
+                                    format: int32
+                                    minimum: 1
+                                    type: integer
+                                  numerator:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - numerator
+                                type: object
+                                x-kubernetes-validations:
+                                - message: numerator must be less than or equal to
+                                    denominator
+                                  rule: self.numerator <= self.denominator
+                              percent:
+                                description: |-
+                                  Percent represents the percentage of requests that should be
+                                  mirrored to BackendRef. Its minimum value is 0 (indicating 0% of
+                                  requests) and its maximum value is 100 (indicating 100% of requests).
+
+                                  Only one of Fraction or Percent may be specified. If neither field
+                                  is specified, 100% of requests will be mirrored.
+
+                                  <gateway:experimental>
+                                format: int32
+                                maximum: 100
+                                minimum: 0
+                                type: integer
+                            required:
+                            - backendRef
+                            type: object
+                          requestRedirect:
+                            description: |-
+                              RequestRedirect defines a schema for a filter that responds to the
+                              request with an HTTP redirection.
+
+                              Support: Core
+                            properties:
+                              hostname:
+                                description: |-
+                                  Hostname is the hostname to be used in the value of the `Location`
+                                  header in the response.
+                                  When empty, the hostname in the `Host` header of the request is used.
+
+                                  Support: Core
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              path:
+                                description: |-
+                                  Path defines parameters used to modify the path of the incoming request.
+                                  The modified path is then used to construct the `Location` header. When
+                                  empty, the request path is used as-is.
+
+                                  Support: Extended
+                                properties:
+                                  replaceFullPath:
+                                    description: |-
+                                      ReplaceFullPath specifies the value with which to replace the full path
+                                      of a request during a rewrite or redirect.
+                                    maxLength: 1024
+                                    type: string
+                                  replacePrefixMatch:
+                                    description: |-
+                                      ReplacePrefixMatch specifies the value with which to replace the prefix
+                                      match of a request during a rewrite or redirect. For example, a request
+                                      to "/foo/bar" with a prefix match of "/foo" and a ReplacePrefixMatch
+                                      of "/xyz" would be modified to "/xyz/bar".
+
+                                      Note that this matches the behavior of the PathPrefix match type. This
+                                      matches full path elements. A path element refers to the list of labels
+                                      in the path split by the `/` separator. When specified, a trailing `/` is
+                                      ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+                                      match the prefix `/abc`, but the path `/abcd` would not.
+
+                                      ReplacePrefixMatch is only compatible with a `PathPrefix` HTTPRouteMatch.
+                                      Using any other HTTPRouteMatch type on the same HTTPRouteRule will result in
+                                      the implementation setting the Accepted Condition for the Route to `status: False`.
+
+                                      Request Path | Prefix Match | Replace Prefix | Modified Path
+                                    maxLength: 1024
+                                    type: string
+                                  type:
+                                    description: |-
+                                      Type defines the type of path modifier. Additional types may be
+                                      added in a future release of the API.
+
+                                      Note that values may be added to this enum, implementations
+                                      must ensure that unknown values will not cause a crash.
+
+                                      Unknown values here must result in the implementation setting the
+                                      Accepted Condition for the Route to `status: False`, with a
+                                      Reason of `UnsupportedValue`.
+                                    enum:
+                                    - ReplaceFullPath
+                                    - ReplacePrefixMatch
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: replaceFullPath must be specified when
+                                    type is set to 'ReplaceFullPath'
+                                  rule: 'self.type == ''ReplaceFullPath'' ? has(self.replaceFullPath)
+                                    : true'
+                                - message: type must be 'ReplaceFullPath' when replaceFullPath
+                                    is set
+                                  rule: 'has(self.replaceFullPath) ? self.type ==
+                                    ''ReplaceFullPath'' : true'
+                                - message: replacePrefixMatch must be specified when
+                                    type is set to 'ReplacePrefixMatch'
+                                  rule: 'self.type == ''ReplacePrefixMatch'' ? has(self.replacePrefixMatch)
+                                    : true'
+                                - message: type must be 'ReplacePrefixMatch' when
+                                    replacePrefixMatch is set
+                                  rule: 'has(self.replacePrefixMatch) ? self.type
+                                    == ''ReplacePrefixMatch'' : true'
+                              port:
+                                description: |-
+                                  Port is the port to be used in the value of the `Location`
+                                  header in the response.
+
+                                  If no port is specified, the redirect port MUST be derived using the
+                                  following rules:
+
+                                  * If redirect scheme is not-empty, the redirect port MUST be the well-known
+                                    port associated with the redirect scheme. Specifically "http" to port 80
+                                    and "https" to port 443. If the redirect scheme does not have a
+                                    well-known port, the listener port of the Gateway SHOULD be used.
+                                  * If redirect scheme is empty, the redirect port MUST be the Gateway
+                                    Listener port.
+
+                                  Implementations SHOULD NOT add the port number in the 'Location'
+                                  header in the following cases:
+
+                                  * A Location header that will use HTTP (whether that is determined via
+                                    the Listener protocol or the Scheme field) _and_ use port 80.
+                                  * A Location header that will use HTTPS (whether that is determined via
+                                    the Listener protocol or the Scheme field) _and_ use port 443.
+
+                                  Support: Extended
+                                format: int32
+                                maximum: 65535
+                                minimum: 1
+                                type: integer
+                              scheme:
+                                description: |-
+                                  Scheme is the scheme to be used in the value of the `Location` header in
+                                  the response. When empty, the scheme of the request is used.
+
+                                  Scheme redirects can affect the port of the redirect, for more information,
+                                  refer to the documentation for the port field of this filter.
+
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a crash.
+
+                                  Unknown values here must result in the implementation setting the
+                                  Accepted Condition for the Route to `status: False`, with a
+                                  Reason of `UnsupportedValue`.
+
+                                  Support: Extended
+                                enum:
+                                - http
+                                - https
+                                type: string
+                              statusCode:
+                                default: 302
+                                description: |-
+                                  StatusCode is the HTTP status code to be used in response.
+
+                                  Note that values may be added to this enum, implementations
+                                  must ensure that unknown values will not cause a crash.
+
+                                  Unknown values here must result in the implementation setting the
+                                  Accepted Condition for the Route to `status: False`, with a
+                                  Reason of `UnsupportedValue`.
+
+                                  Support: Core
+                                enum:
+                                - 301
+                                - 302
+                                type: integer
+                            type: object
+                          responseHeaderModifier:
+                            description: |-
+                              ResponseHeaderModifier defines a schema for a filter that modifies response
+                              headers.
+
+                              Support: Extended
+                            properties:
+                              add:
+                                description: |-
+                                  Add adds the given header(s) (name, value) to the request
+                                  before the action. It appends to any existing values associated
+                                  with the header name.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    add:
+                                    - name: "my-header"
+                                      value: "bar,baz"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo,bar,baz
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              remove:
+                                description: |-
+                                  Remove the given header(s) from the HTTP request before the action. The
+                                  value of Remove is a list of HTTP header names. Note that the header
+                                  names are case-insensitive (see
+                                  https://datatracker.ietf.org/doc/html/rfc2616#section-4.2).
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header1: foo
+                                    my-header2: bar
+                                    my-header3: baz
+
+                                  Config:
+                                    remove: ["my-header1", "my-header3"]
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header2: bar
+                                items:
+                                  type: string
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-type: set
+                              set:
+                                description: |-
+                                  Set overwrites the request with the given header (name, value)
+                                  before the action.
+
+                                  Input:
+                                    GET /foo HTTP/1.1
+                                    my-header: foo
+
+                                  Config:
+                                    set:
+                                    - name: "my-header"
+                                      value: "bar"
+
+                                  Output:
+                                    GET /foo HTTP/1.1
+                                    my-header: bar
+                                items:
+                                  description: HTTPHeader represents an HTTP Header
+                                    name and value as defined by RFC 7230.
+                                  properties:
+                                    name:
+                                      description: |-
+                                        Name is the name of the HTTP Header to be matched. Name matching MUST be
+                                        case insensitive. (See https://tools.ietf.org/html/rfc7230#section-3.2).
+
+                                        If multiple entries specify equivalent header names, the first entry with
+                                        an equivalent name MUST be considered for a match. Subsequent entries
+                                        with an equivalent header name MUST be ignored. Due to the
+                                        case-insensitivity of header names, "foo" and "Foo" are considered
+                                        equivalent.
+                                      maxLength: 256
+                                      minLength: 1
+                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
+                                      type: string
+                                    value:
+                                      description: Value is the value of HTTP Header
+                                        to be matched.
+                                      maxLength: 4096
+                                      minLength: 1
+                                      type: string
+                                  required:
+                                  - name
+                                  - value
+                                  type: object
+                                maxItems: 16
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                            type: object
+                          type:
+                            description: |-
+                              Type identifies the type of filter to apply. As with other API fields,
+                              types are classified into three conformance levels:
+
+                              - Core: Filter types and their corresponding configuration defined by
+                                "Support: Core" in this package, e.g. "RequestHeaderModifier". All
+                                implementations must support core filters.
+
+                              - Extended: Filter types and their corresponding configuration defined by
+                                "Support: Extended" in this package, e.g. "RequestMirror". Implementers
+                                are encouraged to support extended filters.
+
+                              - Implementation-specific: Filters that are defined and supported by
+                                specific vendors.
+                                In the future, filters showing convergence in behavior across multiple
+                                implementations will be considered for inclusion in extended or core
+                                conformance levels. Filter-specific configuration for such filters
+                                is specified using the ExtensionRef field. `Type` should be set to
+                                "ExtensionRef" for custom filters.
+
+                              Implementers are encouraged to define custom implementation types to
+                              extend the core API with implementation-specific behavior.
+
+                              If a reference to a custom filter type cannot be resolved, the filter
+                              MUST NOT be skipped. Instead, requests that would have been processed by
+                              that filter MUST receive a HTTP error response.
+
+                              Note that values may be added to this enum, implementations
+                              must ensure that unknown values will not cause a crash.
+
+                              Unknown values here must result in the implementation setting the
+                              Accepted Condition for the Route to `status: False`, with a
+                              Reason of `UnsupportedValue`.
+                            enum:
+                            - RequestHeaderModifier
+                            - ResponseHeaderModifier
+                            - RequestMirror
+                            - RequestRedirect
+                            - URLRewrite
+                            - ExtensionRef
+                            type: string
+                          urlRewrite:
+                            description: |-
+                              URLRewrite defines a schema for a filter that modifies a request during forwarding.
+
+                              Support: Extended
+                            properties:
+                              hostname:
+                                description: |-
+                                  Hostname is the value to be used to replace the Host header value during
+                                  forwarding.
+
+                                  Support: Extended
+                                maxLength: 253
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              path:
+                                description: |-
+                                  Path defines a path rewrite.
+
+                                  Support: Extended
+                                properties:
+                                  replaceFullPath:
+                                    description: |-
+                                      ReplaceFullPath specifies the value with which to replace the full path
+                                      of a request during a rewrite or redirect.
+                                    maxLength: 1024
+                                    type: string
+                                  replacePrefixMatch:
+                                    description: |-
+                                      ReplacePrefixMatch specifies the value with which to replace the prefix
+                                      match of a request during a rewrite or redirect. For example, a request
+                                      to "/foo/bar" with a prefix match of "/foo" and a ReplacePrefixMatch
+                                      of "/xyz" would be modified to "/xyz/bar".
+
+                                      Note that this matches the behavior of the PathPrefix match type. This
+                                      matches full path elements. A path element refers to the list of labels
+                                      in the path split by the `/` separator. When specified, a trailing `/` is
+                                      ignored. For example, the paths `/abc`, `/abc/`, and `/abc/def` would all
+                                      match the prefix `/abc`, but the path `/abcd` would not.
+
+                                      ReplacePrefixMatch is only compatible with a `PathPrefix` HTTPRouteMatch.
+                                      Using any other HTTPRouteMatch type on the same HTTPRouteRule will result in
+                                      the implementation setting the Accepted Condition for the Route to `status: False`.
+
+                                      Request Path | Prefix Match | Replace Prefix | Modified Path
+                                    maxLength: 1024
+                                    type: string
+                                  type:
+                                    description: |-
+                                      Type defines the type of path modifier. Additional types may be
+                                      added in a future release of the API.
+
+                                      Note that values may be added to this enum, implementations
+                                      must ensure that unknown values will not cause a crash.
+
+                                      Unknown values here must result in the implementation setting the
+                                      Accepted Condition for the Route to `status: False`, with a
+                                      Reason of `UnsupportedValue`.
+                                    enum:
+                                    - ReplaceFullPath
+                                    - ReplacePrefixMatch
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: replaceFullPath must be specified when
+                                    type is set to 'ReplaceFullPath'
+                                  rule: 'self.type == ''ReplaceFullPath'' ? has(self.replaceFullPath)
+                                    : true'
+                                - message: type must be 'ReplaceFullPath' when replaceFullPath
+                                    is set
+                                  rule: 'has(self.replaceFullPath) ? self.type ==
+                                    ''ReplaceFullPath'' : true'
+                                - message: replacePrefixMatch must be specified when
+                                    type is set to 'ReplacePrefixMatch'
+                                  rule: 'self.type == ''ReplacePrefixMatch'' ? has(self.replacePrefixMatch)
+                                    : true'
+                                - message: type must be 'ReplacePrefixMatch' when
+                                    replacePrefixMatch is set
+                                  rule: 'has(self.replacePrefixMatch) ? self.type
+                                    == ''ReplacePrefixMatch'' : true'
+                            type: object
+                        required:
+                        - type
+                        type: object
+                        x-kubernetes-validations:
+                        - message: filter.requestHeaderModifier must be nil if the
+                            filter.type is not RequestHeaderModifier
+                          rule: '!(has(self.requestHeaderModifier) && self.type !=
+                            ''RequestHeaderModifier'')'
+                        - message: filter.requestHeaderModifier must be specified
+                            for RequestHeaderModifier filter.type
+                          rule: '!(!has(self.requestHeaderModifier) && self.type ==
+                            ''RequestHeaderModifier'')'
+                        - message: filter.responseHeaderModifier must be nil if the
+                            filter.type is not ResponseHeaderModifier
+                          rule: '!(has(self.responseHeaderModifier) && self.type !=
+                            ''ResponseHeaderModifier'')'
+                        - message: filter.responseHeaderModifier must be specified
+                            for ResponseHeaderModifier filter.type
+                          rule: '!(!has(self.responseHeaderModifier) && self.type
+                            == ''ResponseHeaderModifier'')'
+                        - message: filter.requestMirror must be nil if the filter.type
+                            is not RequestMirror
+                          rule: '!(has(self.requestMirror) && self.type != ''RequestMirror'')'
+                        - message: filter.requestMirror must be specified for RequestMirror
+                            filter.type
+                          rule: '!(!has(self.requestMirror) && self.type == ''RequestMirror'')'
+                        - message: filter.requestRedirect must be nil if the filter.type
+                            is not RequestRedirect
+                          rule: '!(has(self.requestRedirect) && self.type != ''RequestRedirect'')'
+                        - message: filter.requestRedirect must be specified for RequestRedirect
+                            filter.type
+                          rule: '!(!has(self.requestRedirect) && self.type == ''RequestRedirect'')'
+                        - message: filter.urlRewrite must be nil if the filter.type
+                            is not URLRewrite
+                          rule: '!(has(self.urlRewrite) && self.type != ''URLRewrite'')'
+                        - message: filter.urlRewrite must be specified for URLRewrite
+                            filter.type
+                          rule: '!(!has(self.urlRewrite) && self.type == ''URLRewrite'')'
+                        - message: filter.extensionRef must be nil if the filter.type
+                            is not ExtensionRef
+                          rule: '!(has(self.extensionRef) && self.type != ''ExtensionRef'')'
+                        - message: filter.extensionRef must be specified for ExtensionRef
+                            filter.type
+                          rule: '!(!has(self.extensionRef) && self.type == ''ExtensionRef'')'
+                      maxItems: 16
+                      type: array
+                      x-kubernetes-validations:
+                      - message: May specify either httpRouteFilterRequestRedirect
+                          or httpRouteFilterRequestRewrite, but not both
+                        rule: '!(self.exists(f, f.type == ''RequestRedirect'') &&
+                          self.exists(f, f.type == ''URLRewrite''))'
+                      - message: May specify either httpRouteFilterRequestRedirect
+                          or httpRouteFilterRequestRewrite, but not both
+                        rule: '!(self.exists(f, f.type == ''RequestRedirect'') &&
+                          self.exists(f, f.type == ''URLRewrite''))'
+                      - message: RequestHeaderModifier filter cannot be repeated
+                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
+                          <= 1
+                      - message: ResponseHeaderModifier filter cannot be repeated
+                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
+                          <= 1
+                      - message: RequestRedirect filter cannot be repeated
+                        rule: self.filter(f, f.type == 'RequestRedirect').size() <=
+                          1
+                      - message: URLRewrite filter cannot be repeated
+                        rule: self.filter(f, f.type == 'URLRewrite').size() <= 1
+                    group:
+                      default: ""
+                      description: |-
+                        Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                        When unspecified or empty string, core API group is inferred.
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      default: Service
+                      description: |-
+                        Kind is the Kubernetes resource kind of the referent. For example
+                        "Service".
+
+                        Defaults to "Service" when not specified.
+
+                        ExternalName services can refer to CNAME DNS records that may live
+                        outside of the cluster and as such are difficult to reason about in
+                        terms of conformance. They also may not be safe to forward to (see
+                        CVE-2021-25740 for more information). Implementations SHOULD NOT
+                        support ExternalName Services.
+
+                        Support: Core (Services with a type other than ExternalName)
+
+                        Support: Implementation-specific (Services with type ExternalName)
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: Name is the name of the referent.
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the backend. When unspecified, the local
+                        namespace is inferred.
+
+                        Note that when a namespace different than the local namespace is specified,
+                        a ReferenceGrant object is required in the referent namespace to allow that
+                        namespace's owner to accept the reference. See the ReferenceGrant
+                        documentation for details.
+
+                        Support: Core
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    port:
+                      description: |-
+                        Port specifies the destination port number to use for this resource.
+                        Port is required when the referent is a Kubernetes Service. In this
+                        case, the port number is the service port number, not the target port.
+                        For other resources, destination port might be derived from the referent
+                        resource or this field.
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    weight:
+                      default: 1
+                      description: |-
+                        Weight specifies the proportion of requests forwarded to the referenced
+                        backend. This is computed as weight/(sum of all weights in this
+                        BackendRefs list). For non-zero values, there may be some epsilon from
+                        the exact proportion defined here depending on the precision an
+                        implementation supports. Weight is not a percentage and the sum of
+                        weights does not need to equal 100.
+
+                        If only one backend is specified and it has a weight greater than 0, 100%
+                        of the traffic is forwarded to that backend. If weight is set to 0, no
+                        traffic should be forwarded for this entry. If unspecified, weight
+                        defaults to 1.
+
+                        Support for this field varies based on the context where used.
+                      format: int32
+                      maximum: 1000000
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: Must have port for Service reference
+                    rule: '(size(self.group) == 0 && self.kind == ''Service'') ? has(self.port)
+                      : true'
+                maxItems: 16
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: arksmodels.arks.ai
+spec:
+  group: arks.ai
+  names:
+    kind: ArksModel
+    listKind: ArksModelList
+    plural: arksmodels
+    shortNames:
+    - am
+    singular: arksmodel
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: The model being used
+      jsonPath: .spec.model
+      name: Model
+      type: string
+    - description: The current phase of the model
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ArksModelSpec defines the desired state of ArksModel.
+            properties:
+              model:
+                description: |-
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                type: string
+              source:
+                description: Source is the src of the data for the requested ArksModel
+                properties:
+                  huggingface:
+                    description: Hugingface defines the parameters to pull model from
+                      hugging face registry.
+                    properties:
+                      tokenSecretRef:
+                        description: |-
+                          LocalObjectReference contains enough information to let you locate the
+                          referenced object inside the same namespace.
+                        properties:
+                          name:
+                            default: ""
+                            description: |-
+                              Name of the referent.
+                              This field is effectively required, but due to backwards compatibility is
+                              allowed to be empty. Instances of this type with an empty value here are
+                              almost certainly wrong.
+                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                type: object
+              storage:
+                description: Storage defines the Storage type specification
+                properties:
+                  pvc:
+                    description: |-
+                      PVC defines the storage type to store the specified model.
+                      Storage directory path: Qwen/QwQ-32B
+                    properties:
+                      name:
+                        type: string
+                      spec:
+                        description: |-
+                          PersistentVolumeClaimSpec describes the common attributes of storage devices
+                          and allows a Source for provider-specific attributes
+                        properties:
+                          accessModes:
+                            description: |-
+                              accessModes contains the desired access modes the volume should have.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                          dataSource:
+                            description: |-
+                              dataSource field can be used to specify either:
+                              * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
+                              * An existing PVC (PersistentVolumeClaim)
+                              If the provisioner or an external controller can support the specified data source,
+                              it will create a new volume based on the contents of the specified data source.
+                              When the AnyVolumeDataSource feature gate is enabled, dataSource contents will be copied to dataSourceRef,
+                              and dataSourceRef contents will be copied to dataSource when dataSourceRef.namespace is not specified.
+                              If the namespace is specified, then dataSourceRef will not be copied to dataSource.
+                            properties:
+                              apiGroup:
+                                description: |-
+                                  APIGroup is the group for the resource being referenced.
+                                  If APIGroup is not specified, the specified Kind must be in the core API group.
+                                  For any other third-party types, APIGroup is required.
+                                type: string
+                              kind:
+                                description: Kind is the type of resource being referenced
+                                type: string
+                              name:
+                                description: Name is the name of resource being referenced
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          dataSourceRef:
+                            description: |-
+                              dataSourceRef specifies the object from which to populate the volume with data, if a non-empty
+                              volume is desired. This may be any object from a non-empty API group (non
+                              core object) or a PersistentVolumeClaim object.
+                              When this field is specified, volume binding will only succeed if the type of
+                              the specified object matches some installed volume populator or dynamic
+                              provisioner.
+                              This field will replace the functionality of the dataSource field and as such
+                              if both fields are non-empty, they must have the same value. For backwards
+                              compatibility, when namespace isn't specified in dataSourceRef,
+                              both fields (dataSource and dataSourceRef) will be set to the same
+                              value automatically if one of them is empty and the other is non-empty.
+                              When namespace is specified in dataSourceRef,
+                              dataSource isn't set to the same value and must be empty.
+                              There are three important differences between dataSource and dataSourceRef:
+                              * While dataSource only allows two specific types of objects, dataSourceRef
+                                allows any non-core object, as well as PersistentVolumeClaim objects.
+                              * While dataSource ignores disallowed values (dropping them), dataSourceRef
+                                preserves all values, and generates an error if a disallowed value is
+                                specified.
+                              * While dataSource only allows local objects, dataSourceRef allows objects
+                                in any namespaces.
+                              (Beta) Using this field requires the AnyVolumeDataSource feature gate to be enabled.
+                              (Alpha) Using the namespace field of dataSourceRef requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                            properties:
+                              apiGroup:
+                                description: |-
+                                  APIGroup is the group for the resource being referenced.
+                                  If APIGroup is not specified, the specified Kind must be in the core API group.
+                                  For any other third-party types, APIGroup is required.
+                                type: string
+                              kind:
+                                description: Kind is the type of resource being referenced
+                                type: string
+                              name:
+                                description: Name is the name of resource being referenced
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace is the namespace of resource being referenced
+                                  Note that when a namespace is specified, a gateway.networking.k8s.io/ReferenceGrant object is required in the referent namespace to allow that namespace's owner to accept the reference. See the ReferenceGrant documentation for details.
+                                  (Alpha) This field requires the CrossNamespaceVolumeDataSource feature gate to be enabled.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                          resources:
+                            description: |-
+                              resources represents the minimum resources the volume should have.
+                              If RecoverVolumeExpansionFailure feature is enabled users are allowed to specify resource requirements
+                              that are lower than previous value but must still be higher than capacity recorded in the
+                              status field of the claim.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources
+                            properties:
+                              limits:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: |-
+                                  Limits describes the maximum amount of compute resources allowed.
+                                  More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                type: object
+                              requests:
+                                additionalProperties:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                                description: |-
+                                  Requests describes the minimum amount of compute resources required.
+                                  If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                  otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                                  More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                type: object
+                            type: object
+                          selector:
+                            description: selector is a label query over volumes to
+                              consider for binding.
+                            properties:
+                              matchExpressions:
+                                description: matchExpressions is a list of label selector
+                                  requirements. The requirements are ANDed.
+                                items:
+                                  description: |-
+                                    A label selector requirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values. If the operator is In or NotIn,
+                                        the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                        the values array must be empty. This array is replaced during a strategic
+                                        merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                  map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                  operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                type: object
+                            type: object
+                            x-kubernetes-map-type: atomic
+                          storageClassName:
+                            description: |-
+                              storageClassName is the name of the StorageClass required by the claim.
+                              More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+                            type: string
+                          volumeAttributesClassName:
+                            description: |-
+                              volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
+                              If specified, the CSI driver will create or update the volume with the attributes defined
+                              in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
+                              it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
+                              will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
+                              If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
+                              will be set by the persistentvolume controller if it exists.
+                              If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
+                              set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
+                              exists.
+                              More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
+                              (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
+                            type: string
+                          volumeMode:
+                            description: |-
+                              volumeMode defines what type of volume is required by the claim.
+                              Value of Filesystem is implied when not included in claim spec.
+                            type: string
+                          volumeName:
+                            description: volumeName is the binding reference to the
+                              PersistentVolume backing this claim.
+                            type: string
+                        type: object
+                    required:
+                    - spec
+                    type: object
+                type: object
+            required:
+            - model
+            type: object
+          status:
+            description: ArksModelStatus defines the observed state of ArksModel.
+            properties:
+              conditions:
+                items:
+                  description: ArksModelCondition represents the state of a model
+                    volume condition.
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              phase:
+                description: |-
+                  INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                type: string
+            required:
+            - phase
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: arksquotas.arks.ai
+spec:
+  group: arks.ai
+  names:
+    kind: ArksQuota
+    listKind: ArksQuotaList
+    plural: arksquotas
+    shortNames:
+    - aq
+    singular: arksquota
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: ArksQuota is the Schema for the arksquotas API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ArksQuotaSpec defines the desired state of ArksQuota
+            properties:
+              quotas:
+                description: Quotas is a list of quota configurations
+                items:
+                  description: QuotaItem defines a single quota configuration
+                  properties:
+                    type:
+                      enum:
+                      - prompt
+                      - response
+                      - total
+                      type: string
+                    value:
+                      description: Value of the quota
+                      format: int64
+                      minimum: 0
+                      type: integer
+                  required:
+                  - type
+                  - value
+                  type: object
+                minItems: 1
+                type: array
+            required:
+            - quotas
+            type: object
+          status:
+            description: ArksQuotaStatus defines the observed state of ArksQuota
+            properties:
+              quotaStatus:
+                description: List of quota usage status
+                items:
+                  description: QuotaStatus represents the current usage of a quota
+                  properties:
+                    lastUpdateTime:
+                      description: Last update time of the status
+                      format: date-time
+                      type: string
+                    type:
+                      description: Name of the quota type
+                      type: string
+                    used:
+                      description: Current usage value
+                      format: int64
+                      type: integer
+                  required:
+                  - type
+                  - used
+                  type: object
+                type: array
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.2
+  name: arkstokens.arks.ai
+spec:
+  group: arks.ai
+  names:
+    kind: ArksToken
+    listKind: ArksTokenList
+    plural: arkstokens
+    singular: arkstoken
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: ArksToken is the Schema for the arkstokens API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ArksTokenSpec defines the desired state of ArksToken.
+            properties:
+              qos:
+                items:
+                  properties:
+                    arksEndpoint:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    quota:
+                      description: |-
+                        LocalObjectReference contains enough information to let you locate the
+                        referenced object inside the same namespace.
+                      properties:
+                        name:
+                          default: ""
+                          description: |-
+                            Name of the referent.
+                            This field is effectively required, but due to backwards compatibility is
+                            allowed to be empty. Instances of this type with an empty value here are
+                            almost certainly wrong.
+                            More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          type: string
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    rateLimits:
+                      items:
+                        properties:
+                          type:
+                            description: |-
+                              EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+                              NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+                            enum:
+                            - rpm
+                            - rpd
+                            - tpm
+                            - tpd
+                            type: string
+                          value:
+                            format: int64
+                            minimum: 0
+                            type: integer
+                        required:
+                        - type
+                        - value
+                        type: object
+                      type: array
+                  required:
+                  - arksEndpoint
+                  - quota
+                  - rateLimits
+                  type: object
+                type: array
+              token:
+                description: |-
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
+                type: string
+            required:
+            - qos
+            - token
+            type: object
+          status:
+            description: ArksTokenStatus defines the observed state of ArksToken.
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-controller-manager
+  namespace: arks-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-leader-election-role
+  namespace: arks-operator-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksapplication-admin-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications
+  verbs:
+  - '*'
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksapplication-editor-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksapplication-viewer-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksendpoint-admin-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints
+  verbs:
+  - '*'
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksendpoint-editor-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksendpoint-viewer-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksendpoints/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksmodel-admin-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels
+  verbs:
+  - '*'
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksmodel-editor-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksmodel-viewer-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksmodels/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksquota-admin-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas
+  verbs:
+  - '*'
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksquota-editor-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arksquota-viewer-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksquotas/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arkstoken-admin-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens
+  verbs:
+  - '*'
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arkstoken-editor-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-arkstoken-viewer-role
+rules:
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arkstokens/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arks-operator-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - pods
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications
+  - arksendpoints
+  - arksmodels
+  - arksquotas
+  - arkstokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/finalizers
+  - arksendpoints/finalizers
+  - arksmodels/finalizers
+  - arksquotas/finalizers
+  - arkstokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/status
+  - arksendpoints/status
+  - arksmodels/status
+  - arksquotas/status
+  - arkstokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - leaderworkerset.x-k8s.io
+  resources:
+  - leaderworkersets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arks-operator-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arks-operator-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-leader-election-rolebinding
+  namespace: arks-operator-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: arks-operator-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: arks-operator-controller-manager
+  namespace: arks-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+  name: arks-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arks-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: arks-operator-controller-manager
+  namespace: arks-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arks-operator-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arks-operator-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: arks-operator-controller-manager
+  namespace: arks-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+    control-plane: controller-manager
+  name: arks-operator-controller-manager-metrics-service
+  namespace: arks-operator-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: arks-operator
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: arks-operator
+    control-plane: controller-manager
+  name: arks-operator-controller-manager
+  namespace: arks-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: arks-operator
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: arks-operator
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: scitixai/arks-operator:v0.1.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports: []
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 2
+            memory: 4Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+        volumeMounts: []
+      serviceAccountName: arks-operator-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes: []

@@ -7,8 +7,8 @@ body:
     attributes:
       value: >
         #### Before submitting a bug, please make sure the issue hasn't been already addressed by searching through [the
-        existing and past issues](https://github.com/scitix/arks/issues).
-        It's likely that your issue might be resolved by checking our [documentation](https://github.com/scitix/arks) or troubleshooting guide.
+        existing and past issues](https://github.com/arks-ai/arks/issues).
+        It's likely that your issue might be resolved by checking our [documentation](https://github.com/arks-ai/arks) or troubleshooting guide.
   
   - type: textarea
     attributes:

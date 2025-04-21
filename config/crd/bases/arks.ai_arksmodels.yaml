@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: arksmodels.arks.scitix.ai
+  name: arksmodels.arks.ai
 spec:
-  group: arks.scitix.ai
+  group: arks.ai
   names:
     kind: ArksModel
     listKind: ArksModelList

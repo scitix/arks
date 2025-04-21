@@ -2,55 +2,55 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: scitix.ai
+domain: arks.ai
 layout:
 - go.kubebuilder.io/v4
 projectName: arks-operator
-repo: github.com/scitix/arks
+repo: github.com/arks-ai/arks
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: scitix.ai
+  domain: arks.ai
   group: arks
   kind: ArksApplication
-  path: github.com/scitix/arks/api/v1
+  path: github.com/arks-ai/arks/api/v1
   version: v1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: scitix.ai
+  domain: arks.ai
   group: arks
   kind: ArksToken
-  path: github.com/scitix/arks/api/v1
+  path: github.com/arks-ai/arks/api/v1
   version: v1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: scitix.ai
+  domain: arks.ai
   group: arks
   kind: ArksQuota
-  path: github.com/scitix/arks/api/v1
+  path: github.com/arks-ai/arks/api/v1
   version: v1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: scitix.ai
+  domain: arks.ai
   group: arks
   kind: ArksModel
-  path: github.com/scitix/arks/api/v1
+  path: github.com/arks-ai/arks/api/v1
   version: v1
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: scitix.ai
+  domain: arks.ai
   group: arks
   kind: ArksEndpoint
-  path: github.com/scitix/arks/api/v1
+  path: github.com/arks-ai/arks/api/v1
   version: v1
 version: "3"

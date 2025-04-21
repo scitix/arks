@@ -36,8 +36,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
-	arksv1 "github.com/scitix/arks/api/v1"
-	"github.com/scitix/arks/pkg/gateway/quota"
+	arksv1 "github.com/arks-ai/arks/api/v1"
+	"github.com/arks-ai/arks/pkg/gateway/quota"
 )
 
 // ArksProvider

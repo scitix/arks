@@ -1,0 +1,319 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: arks-gateway-plugins
+  namespace: arks-operator-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: arks-gateway-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - pods
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications
+  - arksendpoints
+  - arksmodels
+  - arksquotas
+  - arkstokens
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/finalizers
+  - arksendpoints/finalizers
+  - arksmodels/finalizers
+  - arksquotas/finalizers
+  - arkstokens/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - arks.ai
+  resources:
+  - arksapplications/status
+  - arksendpoints/status
+  - arksmodels/status
+  - arksquotas/status
+  - arkstokens/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - leaderworkerset.x-k8s.io
+  resources:
+  - leaderworkersets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: arks-gateway-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: arks-gateway-manager-role
+subjects:
+- kind: ServiceAccount
+  name: arks-gateway-plugins
+  namespace: arks-operator-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: arks-gateway-plugins
+  name: arks-gateway-plugins
+  namespace: arks-operator-system
+spec:
+  ports:
+  - name: grpc
+    port: 50052
+    protocol: TCP
+    targetPort: 50052
+  - name: metrics
+    port: 8080
+    protocol: TCP
+    targetPort: metrics
+  selector:
+    app: arks-gateway-plugins
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: redis
+    role: master
+    tier: backend
+  name: arks-redis-master
+  namespace: arks-operator-system
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+    role: master
+    tier: backend
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arks-gateway-plugins
+  namespace: arks-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: arks-gateway-plugins
+  template:
+    metadata:
+      labels:
+        app: arks-gateway-plugins
+    spec:
+      containers:
+      - args:
+        - -redis.addrs=arks-redis-master:6379
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: scitixai/arks-gateway-plugin:v0.1.0
+        imagePullPolicy: Always
+        name: main
+        ports:
+        - containerPort: 50052
+        - containerPort: 8080
+          name: metrics
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi
+          requests:
+            cpu: 1
+            memory: 1Gi
+      initContainers:
+      - command:
+        - sh
+        - -c
+        - until echo "ping" | nc arks-redis-master 6379 -w 1  | grep -c PONG; do echo
+          waiting for service arks-redis-master; sleep 2; done
+        image: busybox
+        name: init-c
+      serviceAccountName: arks-gateway-plugins
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: redis
+  name: arks-redis-master
+  namespace: arks-operator-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: master
+        tier: backend
+    spec:
+      containers:
+      - image: redis
+        name: master
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: 1
+            memory: 1Gi
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: client-connection-buffersize
+  namespace: arks-operator-system
+spec:
+  connection:
+    bufferLimit: 4194304
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: akrs-eg
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: gateway-plugins-extension-policy
+  namespace: arks-operator-system
+spec:
+  extProc:
+  - backendRefs:
+    - name: arks-gateway-plugins
+      port: 50052
+    messageTimeout: 5s
+    processingMode:
+      request:
+        body: Buffered
+      response:
+        body: Streamed
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: arks-eg
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: akrs-custom-proxy-config
+  namespace: arks-operator-system
+spec:
+  provider:
+    kubernetes:
+      envoyDeployment:
+        container:
+          resources:
+            limits:
+              cpu: 1
+              memory: 1Gi
+            requests:
+              cpu: 1
+              memory: 1Gi
+    type: Kubernetes
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: arks-eg
+  namespace: arks-operator-system
+spec:
+  gatewayClassName: arks-eg
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: akrs-custom-proxy-config
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: http
+    port: 80
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: arks-eg
+  namespace: arks-operator-system
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: arks-reserved-router
+  namespace: arks-operator-system
+spec:
+  parentRefs:
+  - name: arks-eg
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/chat/completions
+    - path:
+        type: PathPrefix
+        value: /v1/completions

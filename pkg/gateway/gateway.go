@@ -23,17 +23,17 @@ import (
 	"sync"
 	"time"
 
+	"github.com/arks-ai/arks/pkg/gateway/metrics"
 	"github.com/google/uuid"
-	"github.com/scitix/arks/pkg/gateway/metrics"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
 
+	"github.com/arks-ai/arks/pkg/gateway/qosconfig"
+	"github.com/arks-ai/arks/pkg/gateway/quota"
+	"github.com/arks-ai/arks/pkg/gateway/ratelimiter"
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/scitix/arks/pkg/gateway/qosconfig"
-	"github.com/scitix/arks/pkg/gateway/quota"
-	"github.com/scitix/arks/pkg/gateway/ratelimiter"
 	healthPb "google.golang.org/grpc/health/grpc_health_v1"
 )
 

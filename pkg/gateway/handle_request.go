@@ -22,7 +22,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/scitix/arks/pkg/gateway/qosconfig"
+	"github.com/arks-ai/arks/pkg/gateway/qosconfig"
 	"k8s.io/klog/v2"
 
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

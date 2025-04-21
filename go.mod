@@ -1,4 +1,4 @@
-module github.com/scitix/arks
+module github.com/arks-ai/arks
 
 go 1.24.0
 

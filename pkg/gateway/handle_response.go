@@ -24,9 +24,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/arks-ai/arks/pkg/gateway/qosconfig"
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/packages/ssestream"
-	"github.com/scitix/arks/pkg/gateway/qosconfig"
 	"k8s.io/klog/v2"
 
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

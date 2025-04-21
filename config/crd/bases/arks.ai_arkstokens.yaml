@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.17.2
-  name: arkstokens.arks.scitix.ai
+  name: arkstokens.arks.ai
 spec:
-  group: arks.scitix.ai
+  group: arks.ai
   names:
     kind: ArksToken
     listKind: ArksTokenList

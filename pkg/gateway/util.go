@@ -17,12 +17,12 @@ limitations under the License.
 package gateway
 
 import (
+	"github.com/arks-ai/arks/pkg/gateway/qosconfig"
+	"github.com/arks-ai/arks/pkg/gateway/ratelimiter"
 	configPb "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	envoyTypePb "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/scitix/arks/pkg/gateway/qosconfig"
-	"github.com/scitix/arks/pkg/gateway/ratelimiter"
 )
 
 // jsonfast is a faster json parser

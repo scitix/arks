@@ -56,7 +56,7 @@
 
 ### Installation
 ```bash
-git clone https://github.com/scitix/arks.git
+git clone https://github.com/arks-ai/arks.git
 cd arks
 
 # Install envoy gateway, lws dependencies
@@ -103,20 +103,20 @@ kubectl get arksapplication,arksendpoint,arksmodel,arksquota,arkstoken,httproute
 ---
 # REPLICAS should equals to READY, PHASE should be Running
 NAME                                      PHASE     REPLICAS   READY   AGE   MODEL     RUNTIME   DRIVER
-arksapplication.arks.scitix.ai/app-qwen   Running   1          1       21m   qwen-7b   sglang
+arksapplication.arks.ai/app-qwen   Running   1          1       21m   qwen-7b   sglang
 
 NAME                                  AGE   DEFAULT WEIGHT
-arksendpoint.arks.scitix.ai/qwen-7b   21m   5
+arksendpoint.arks.ai/qwen-7b   21m   5
 
 # PHASE should be Ready
 NAME                               AGE   MODEL                         PHASE
-arksmodel.arks.scitix.ai/qwen-7b   21m   Qwen/Qwen2.5-7B-Instruct-1M   Ready
+arksmodel.arks.ai/qwen-7b   21m   Qwen/Qwen2.5-7B-Instruct-1M   Ready
 
 NAME                                   AGE
-arksquota.arks.scitix.ai/basic-quota   21m
+arksquota.arks.ai/basic-quota   21m
 
 NAME                                     AGE
-arkstoken.arks.scitix.ai/example-token   21m
+arkstoken.arks.ai/example-token   21m
 
 NAME                                          HOSTNAMES   AGE
 httproute.gateway.networking.k8s.io/qwen-7b               21m

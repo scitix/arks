@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	arksv1 "github.com/scitix/arks/api/v1"
+	arksv1 "github.com/arks-ai/arks/api/v1"
 )
 
 // ArksQuotaReconciler reconciles a ArksQuota object
@@ -33,9 +33,9 @@ type ArksQuotaReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksquotas,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksquotas/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksquotas/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arks.ai,resources=arksquotas,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arks.ai,resources=arksquotas/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arks.ai,resources=arksquotas/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

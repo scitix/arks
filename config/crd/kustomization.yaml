@@ -2,11 +2,11 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/arks.scitix.ai_arksapplications.yaml
-- bases/arks.scitix.ai_arkstokens.yaml
-- bases/arks.scitix.ai_arksquotas.yaml
-- bases/arks.scitix.ai_arksmodels.yaml
-- bases/arks.scitix.ai_arksendpoints.yaml
+- bases/arks.ai_arksapplications.yaml
+- bases/arks.ai_arkstokens.yaml
+- bases/arks.ai_arksquotas.yaml
+- bases/arks.ai_arksmodels.yaml
+- bases/arks.ai_arksendpoints.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

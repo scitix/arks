@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	arksv1 "github.com/scitix/arks/api/v1"
+	arksv1 "github.com/arks-ai/arks/api/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +45,7 @@ type ArksEndpointReconciler struct {
 }
 
 const (
-	arksEndpointControllerFinalizer = "endpoint.arks.scitix.ai/controller"
+	arksEndpointControllerFinalizer = "endpoint.arks.ai/controller"
 )
 
 func (r *ArksEndpointReconciler) ArksAppIndexFunc(obj client.Object) []string {
@@ -144,9 +144,9 @@ func (r *ArksEndpointReconciler) enqueueFromApp(ctx context.Context, obj client.
 	return requests
 }
 
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksendpoints,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksendpoints/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=arks.scitix.ai,resources=arksendpoints/finalizers,verbs=update
+// +kubebuilder:rbac:groups=arks.ai,resources=arksendpoints,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=arks.ai,resources=arksendpoints/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arks.ai,resources=arksendpoints/finalizers,verbs=update
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
