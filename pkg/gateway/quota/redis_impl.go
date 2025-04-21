@@ -52,7 +52,7 @@ func (s *RedisQuotaService) SetUsage(ctx context.Context, requests []*QuotaReque
 
 	for _, req := range requests {
 		key := s.keyGen.Generate(req)
-		pipe.Set(ctx, key, req.Request, 0) 
+		pipe.Set(ctx, key, req.Request, 0)
 	}
 
 	_, err := pipe.Exec(ctx)
