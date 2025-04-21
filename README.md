@@ -124,20 +124,25 @@ httproute.gateway.networking.k8s.io/qwen-7b               21m
 ```
 
 ### Testing
-Currently loadbalancer support is not available, you can access the service through envoy service.
-Get the name of the Envoy service created the by the example Gateway:
-``` bash
-export ENVOY_SERVICE=$(kubectl get svc -n envoy-gateway-system --selector=gateway.envoyproxy.io/owning-gateway-name=arks-eg -o jsonpath='{.items[0].metadata.name}')
-```
 
-Port forward to the Envoy service:
+Get the gateway IP: 
+
 ``` bash
+# Option 1: Kubernetes cluster with LoadBalancer support
+LB_IP=$(kubectl get svc -n envoy-gateway-system --selector=gateway.envoyproxy.io/owning-gateway-name=arks-eg -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+ENDPOINT="${LB_IP}:80"
+
+# Option 2: Dev environment without LoadBalancer support. Use port forwarding way instead
+ENVOY_SERVICE=$(kubectl get svc -n envoy-gateway-system --selector=gateway.envoyproxy.io/owning-gateway-name=arks-eg -o jsonpath='{.items[0].metadata.name}')
 kubectl -n envoy-gateway-system port-forward service/${ENVOY_SERVICE} 8888:80 &
+ENDPOINT="localhost:8888"
+
 ```
 
 Curl the example app through Envoy proxy:
+
 ``` bash
-curl http://localhost:8888/v1/chat/completions -k \
+curl http://${ENDPOINT}:8888/v1/chat/completions -k \
   -H "Authorization: Bearer sk-test123456" \
   -d '{"model": "qwen-7b", "messages": [{"role": "user", "content": "Hello, who are you?"}]}'
 ```
@@ -178,6 +183,7 @@ kubectl delete -k config/dependency
 ```
 
 ## License
+
 *Arks* is licensed under the Apache 2.0 License.
 
 ## Community, discussion, contribution, and support
