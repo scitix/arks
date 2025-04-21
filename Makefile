@@ -1,5 +1,10 @@
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+REPO ?= docker.io/scitixai
+VERSION ?= $(shell git describe --tags --always)
+DOCKERFILE_PATH ?= dockerfiles
+IMAGES := arks-operator arks-gateway-plugins
+# note: to be deprecated
+IMG ?= ${REPO}/arks-opreator:$(VERSION)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -91,9 +96,13 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 ##@ Build
 
-.PHONY: build
+.PHONY: bin
 build: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
+
+.PHONY: gateway-bin
+build: fmt vet ## Build gateway binary.
+	go build -o bin/gateway cmd/gateway/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -102,13 +111,32 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+define build_and_tag
+	$(CONTAINER_TOOL) build -t ${REPO}/$(1):${VERSION} -f ${DOCKERFILE_PATH}/$(2) .
+endef
+
+define push_image
+	$(CONTAINER_TOOL) push ${REPO}/$(1):${VERSION}
+endef
+
+
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(call build_and_tag,arks-operator,Dockerfile)
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
-	$(CONTAINER_TOOL) push ${IMG}
+	$(call push_image,arks-operator)
+
+
+.PHONY: docker-build-gateway
+docker-build: ## Build docker image with the manager.
+	$(call build_and_tag,arks-gateway-plugins,Dockerfile.gateway)
+
+.PHONY: docker-push-gateway
+docker-push: ## Push docker image with the manager.
+	$(call push_image,arks-gateway-plugins)
+
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:

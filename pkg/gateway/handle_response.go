@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/packages/ssestream"
@@ -80,7 +81,11 @@ func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *
 	// Get response body data
 	b := req.Request.(*extProcPb.ProcessingRequest_ResponseBody)
 	klog.InfoS("-- In ResponseBody processing ...", "requestID", requestID, "endOfStream", b.ResponseBody.EndOfStream)
-
+	pt, _ := s.processingTimes.LoadOrStore(requestID, &processingTime{})
+	timing := pt.(*processingTime)
+	if timing.startTime.IsZero() {
+		timing.startTime = time.Now()
+	}
 	// Initialize variables
 	var res struct {
 		Model string                 `json:"model"`
@@ -93,9 +98,15 @@ func (s *Server) HandleResponseBody(ctx context.Context, requestID string, req *
 
 	// TODO: Handle request tracing
 	defer func() {
+		elapsed := time.Since(timing.startTime)
+		timing.duration += elapsed
 		if !hasCompleted && complete && b.ResponseBody.EndOfStream {
 			s.collector.RecordTokenUsage(qos.Namespace, qos.User, model, promptTokens, completionTokens)
+			s.collector.RecordRespProcessingTime(qos.Namespace, qos.User, model, float64(timing.duration.Milliseconds()))
+			s.processingTimes.Delete(requestID)
+			klog.V(5).InfoS("process response", "requestID", requestID, "input", promptTokens, "output", completionTokens, "duration", timing.duration)
 		}
+		timing.startTime = time.Now()
 	}()
 
 	// Handle streaming response

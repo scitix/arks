@@ -16,19 +16,19 @@ limitations under the License.
 
 package metrics
 
-type MetricsCollector interface {
-	RecordRequest(namespace, user, model string, duration float64, status string)
-	RecordTokenUsage(namespace, user, model string, inputTokens, outputTokens int64)
-	RecordRateLimitHit(namespace, user, model, ruleType string)
-	UpdateRateLimitTokens(namespace, user, model, ruleType string, tokens float64)
-	UpdateQuotaUsage(namespace, model, quotaName, quotaType string, usage float64)
-	UpdateQuotaLimit(namespace, model, quotaName, quotaType string, limit float64)
-	RecordError(namespace, model, errorType string)
-}
+// type MetricsCollector interface {
+// 	RecordRequest(namespace, user, model string, duration float64, status string)
+// 	RecordTokenUsage(namespace, user, model string, inputTokens, outputTokens int64)
+// 	RecordRateLimitHit(namespace, user, model, ruleType string)
+// 	UpdateRateLimitTokens(namespace, user, model, ruleType string, tokens float64)
+// 	UpdateQuotaUsage(namespace, model, quotaName, quotaType string, usage float64)
+// 	UpdateQuotaLimit(namespace, model, quotaName, quotaType string, limit float64)
+// 	RecordError(namespace, model, errorType string)
+// }
 
 type DefaultMetricsCollector struct{}
 
-func NewMetricsCollector() MetricsCollector {
+func NewMetricsCollector() *DefaultMetricsCollector {
 	return &DefaultMetricsCollector{}
 }
 
@@ -42,6 +42,10 @@ func (m *DefaultMetricsCollector) RecordTokenUsage(namespace, user, model string
 	tokenUsage.WithLabelValues(namespace, user, model, "output").Add(float64(outputTokens))
 	tokenDistribution.WithLabelValues(namespace, user, model, "input").Observe(float64(inputTokens))
 	tokenDistribution.WithLabelValues(namespace, user, model, "output").Observe(float64(outputTokens))
+}
+
+func (m *DefaultMetricsCollector) RecordRespProcessingTime(namespace, user, model string, ms float64) {
+	responseProcessDurationMs.WithLabelValues(namespace, user, model).Observe(ms)
 }
 
 func (m *DefaultMetricsCollector) RecordRateLimitHit(namespace, user, model, ruleType string) {

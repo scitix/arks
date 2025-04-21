@@ -39,6 +39,15 @@ var (
 		[]string{"namespace", "user", "model"},
 	)
 
+	responseProcessDurationMs = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "gateway_response_process_duration_milliseconds",
+			Help:    "Request duration in milliseconds",
+			Buckets: []float64{1, 5, 10, 50, 100, 200, 500, 1000, 2000, 5000},
+		},
+		[]string{"namespace", "user", "model"},
+	)
+
 	tokenUsage = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gateway_token_usage",
