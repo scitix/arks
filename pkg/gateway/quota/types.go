@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 )
+
 type QuotaService interface {
 	IncrUsage(ctx context.Context, requests []*QuotaRequest) error
 	SetUsage(ctx context.Context, requests []*QuotaRequest) error
@@ -33,8 +34,8 @@ type Label struct {
 
 type QuotaRequest struct {
 	Identifier []Label
-	Limit      int64 
-	Request    int64 
+	Limit      int64
+	Request    int64
 }
 
 type QuotaResult struct {

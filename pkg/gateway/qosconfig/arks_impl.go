@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-
 package qosconfig
 
 import (
@@ -256,7 +255,7 @@ func (p *ArksProvider) syncQuotaUsage(ctx context.Context) error {
 			found := false
 			for i, status := range quota.Status.QuotaStatus {
 				if status.Type == quotaType {
-					
+
 					if status.Used < u.CurrentUsage {
 						shouldUpdateCR = true
 						quota.Status.QuotaStatus[i].Used = u.CurrentUsage
@@ -271,7 +270,7 @@ func (p *ArksProvider) syncQuotaUsage(ctx context.Context) error {
 				}
 			}
 
-			// add new status 
+			// add new status
 			if !found {
 				shouldUpdateCR = true
 				quota.Status.QuotaStatus = append(quota.Status.QuotaStatus, arksv1.QuotaStatus{

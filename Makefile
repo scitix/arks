@@ -25,7 +25,7 @@ SHELL = /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
 .PHONY: all
-all: build
+all: bin
 
 ##@ General
 
@@ -97,11 +97,11 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 ##@ Build
 
 .PHONY: bin
-build: manifests generate fmt vet ## Build manager binary.
+bin: manifests generate fmt vet ## Build manager binary.
 	go build -o bin/manager cmd/main.go
 
 .PHONY: gateway-bin
-build: fmt vet ## Build gateway binary.
+gateway-bin: fmt vet ## Build gateway binary.
 	go build -o bin/gateway cmd/gateway/main.go
 
 .PHONY: run
@@ -130,11 +130,11 @@ docker-push: ## Push docker image with the manager.
 
 
 .PHONY: docker-build-gateway
-docker-build: ## Build docker image with the manager.
+docker-build-gateway: ## Build docker image with the manager.
 	$(call build_and_tag,arks-gateway-plugins,Dockerfile.gateway)
 
 .PHONY: docker-push-gateway
-docker-push: ## Push docker image with the manager.
+docker-push-gateway: ## Push docker image with the manager.
 	$(call push_image,arks-gateway-plugins)
 
 
