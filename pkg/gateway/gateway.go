@@ -20,6 +20,7 @@ import (
 	"context"
 	"io"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,10 +38,16 @@ import (
 )
 
 type Server struct {
-	ratelimiter    ratelimiter.RateLimterInterface
-	quotaService   quota.QuotaService
-	configProvider qosconfig.ConfigProvider
-	collector      metrics.MetricsCollector
+	ratelimiter     ratelimiter.RateLimterInterface
+	quotaService    quota.QuotaService
+	configProvider  qosconfig.ConfigProvider
+	collector       *metrics.DefaultMetricsCollector
+	processingTimes sync.Map
+}
+
+type processingTime struct {
+	startTime time.Time
+	duration  time.Duration
 }
 
 func NewServer(
