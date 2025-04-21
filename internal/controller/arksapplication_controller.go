@@ -104,7 +104,7 @@ func (r *ArksApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return result, err
 	}
 
-	return ctrl.Result{}, nil
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
