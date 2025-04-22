@@ -1,5 +1,5 @@
 resources:
-- monitor.yaml
+- monitor-runtime.yaml
 - monitor-gw.yaml
 
 # [PROMETHEUS-WITH-CERTS] The following patch configures the ServiceMonitor in ../prometheus
