@@ -56,7 +56,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 3,
+        "w": 6,
         "x": 0,
         "y": 0
       },
@@ -83,140 +83,31 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "cdy727ch5evi8d"
+            "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(request_success_total{finished_reason=\"stop\", model_name=\"$model_name\"}[$__range]))",
+          "expr": "sum by(runtime) (increase(request_success_total{finished_reason=\"stop\", model_name=\"$model_name\", namespace=\"$namespace\"}[$__range]))",
           "instant": false,
-          "legendFormat": "Success Request Count(stop)",
+          "legendFormat": "{{job}}",
           "range": true,
           "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "sum by(runtime) (increase(num_requests_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__range]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "{{job}}",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Success Request Count(Stop)",
       "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS_PROMETHEUS}"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "$finished_reason"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 5,
-        "x": 3,
-        "y": 0
-      },
-      "id": 17,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.3.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "cdy727ch5evi8d"
-          },
-          "editorMode": "code",
-          "expr": "sum (increase(request_success_total{model_name=\"$model_name\"}[$__range]))",
-          "instant": false,
-          "legendFormat": "count",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Success Request Count",
-      "type": "timeseries"
     },
     {
       "datasource": {
@@ -241,8 +132,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 5,
-        "x": 8,
+        "w": 6,
+        "x": 6,
         "y": 0
       },
       "id": 12,
@@ -296,7 +187,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(le) (increase(request_prompt_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(le) (increase(request_prompt_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -333,8 +224,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 5,
-        "x": 13,
+        "w": 6,
+        "x": 12,
         "y": 0
       },
       "id": 13,
@@ -388,7 +279,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(le) (increase(request_generation_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(le) (increase(request_generation_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "format": "heatmap",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -492,7 +383,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -508,7 +399,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.9, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.9, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -525,7 +416,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(request_prompt_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -541,7 +432,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "hide": false,
           "instant": false,
           "legendFormat": "Decode-P99",
@@ -554,7 +445,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.90, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.90, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "hide": false,
           "instant": false,
           "legendFormat": "Decode-P90",
@@ -567,7 +458,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by(le) (rate(request_generation_tokens_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "hide": false,
           "instant": false,
           "legendFormat": "Decode-P50",
@@ -669,7 +560,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -684,8 +575,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -701,8 +592,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "histogram_quantile(0.9, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.9, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -718,8 +609,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "histogram_quantile(0.5, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(e2e_request_latency_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -735,7 +626,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(rate(e2e_request_latency_seconds_sum{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval])\n/\nrate(e2e_request_latency_seconds_count{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval]))",
+          "expr": "avg(rate(e2e_request_latency_seconds_sum{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])\n/\nrate(e2e_request_latency_seconds_count{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Average",
@@ -837,7 +728,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -854,7 +745,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -870,7 +761,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.9, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.9, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -887,7 +778,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", job=\"pods\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(time_to_first_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -903,7 +794,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(rate(time_to_first_token_seconds_sum{model_name=\"$model_name\",job=\"pods\"}[$__rate_interval])\n/\nrate(time_to_first_token_seconds_count{model_name=\"$model_name\",job=\"pods\"}[$__rate_interval]))",
+          "expr": "avg(rate(time_to_first_token_seconds_sum{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])\n/\nrate(time_to_first_token_seconds_count{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "hide": false,
           "instant": false,
           "legendFormat": "Average",
@@ -1004,7 +895,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
@@ -1020,7 +911,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -1037,7 +928,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.9, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.9, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -1054,7 +945,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "histogram_quantile(0.5, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.5, sum by(le) (rate(time_per_output_token_seconds_bucket{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
@@ -1070,7 +961,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "rate(time_per_output_token_seconds_sum{model_name=\"$model_name\"}[$__rate_interval])\n/\nrate(time_per_output_token_seconds_count{model_name=\"$model_name\"}[$__rate_interval])",
+          "expr": "rate(time_per_output_token_seconds_sum{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])\n/\nrate(time_per_output_token_seconds_count{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval])",
           "hide": false,
           "instant": false,
           "legendFormat": "Mean",
@@ -1170,14 +1061,27 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(prompt_tokens_total{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(job)(rate(prompt_tokens_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": false,
           "instant": false,
-          "legendFormat": "Prompt Tokens/Sec {{model_name}}",
+          "legendFormat": "tokens/s({{job}})",
           "range": true,
           "refId": "A",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "sum (rate(prompt_tokens_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "tokens/s(SUM)",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Prompt Token Throughput",
@@ -1272,15 +1176,28 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(rate(generation_tokens_total{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(job) (rate(generation_tokens_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": false,
           "instant": false,
-          "legendFormat": "Generation Tokens/Sec {{pod}}",
+          "legendFormat": "tokens/s({{job}})",
           "range": true,
           "refId": "A",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "code",
+          "expr": "sum (rate(generation_tokens_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "tokens/s(ALL)",
+          "range": true,
+          "refId": "B"
         }
       ],
       "title": "Decode Token Throughput",
@@ -1401,7 +1318,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(num_requests_running{model_name=\"$model_name\"})",
+          "expr": "sum (num_requests_running{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1417,7 +1334,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(num_requests_swapped{model_name=\"$model_name\"})",
+          "expr": "sum(num_requests_swapped{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1434,7 +1351,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum(num_requests_waiting{model_name=\"$model_name\"})",
+          "expr": "sum(num_requests_waiting{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -1493,6 +1410,7 @@
             }
           },
           "mappings": [],
+          "max": 1,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1517,6 +1435,7 @@
         "y": 21
       },
       "id": 15,
+      "interval": "5m",
       "options": {
         "legend": {
           "calcs": [],
@@ -1537,7 +1456,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(gpu_prefix_cache_hit_rate{model_name=\"$model_name\"})",
+          "expr": "rate(gpu_prefix_cache_hits_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__interval]) / rate(gpu_prefix_cache_queries_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__interval])",
           "instant": false,
           "legendFormat": "GPU Prefix Cache Hit Ratio",
           "range": true,
@@ -1549,8 +1468,8 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(cpu_prefix_cache_hit_rate{model_name=\"$model_name\"})",
-          "hide": false,
+          "expr": "avg(cpu_prefix_cache_hit_rate{model_name=\"$model_name\", namespace=\"$namespace\"})",
+          "hide": true,
           "instant": false,
           "legendFormat": "CPU Prefix Cache Hit Ratio",
           "range": true,
@@ -1649,7 +1568,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(gpu_cache_usage_perc{model_name=\"$model_name\"})",
+          "expr": "avg(gpu_cache_usage_perc{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "instant": false,
           "legendFormat": "GPU Cache Usage",
           "range": true,
@@ -1661,7 +1580,7 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "code",
-          "expr": "avg(cpu_cache_usage_perc{model_name=\"$model_name\"})",
+          "expr": "avg(cpu_cache_usage_perc{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "hide": false,
           "instant": false,
           "legendFormat": "CPU Cache Usage",
@@ -1761,7 +1680,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(finished_reason) (increase(request_success_total{model_name=\"$model_name\"}[$__rate_interval]))",
+          "expr": "sum by(finished_reason) (increase(request_success_total{model_name=\"$model_name\", namespace=\"$namespace\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -1860,16 +1779,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ddyfngn31dg5cf"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(instance, pod) (num_requests_running{model_name=\"$model_name\"}) ",
+          "expr": "sum by(job) (num_requests_running{model_name=\"$model_name\", namespace=\"$namespace\"}) ",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
           "interval": "",
-          "legendFormat": "{{pod}}",
+          "legendFormat": "{{job}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -1963,16 +1882,16 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "ddyfngn31dg5cf"
+            "uid": "${DS_PROMETHEUS}"
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(instance, pod) (num_requests_waiting{model_name=\"$model_name\"}) ",
+          "expr": "sum by(job) (num_requests_waiting{model_name=\"$model_name\", namespace=\"$namespace\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
           "interval": "",
-          "legendFormat": "{{pod}}",
+          "legendFormat": "{{job}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -2035,6 +1954,10 @@
         "type": "query"
       }
     ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "",
