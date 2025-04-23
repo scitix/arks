@@ -58,6 +58,8 @@ More docs:
 
 - [Gateway Usage](docs/gateway-usage.md)
 
+- [Monitoring](docs/monitoring.md)
+
 ## Quick Start
 ### Prerequisites
 - Kubernetes cluster (v1.20+)
