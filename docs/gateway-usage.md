@@ -9,7 +9,7 @@ The system is built around three main concepts:
 
 All configurations are declarative, using Kubernetes Custom Resources (CRDs) to enable easy automation, GitOps workflows, and tenant-specific customization.
 
-## Architecture & Concepts
+## Architecture
 
 ![gateway-architecture-v1](images/gateway-architecture-v1.png)
 
@@ -34,7 +34,7 @@ This enables:
 - Multi-backend A/B testing
 - Customizable model routing policies
 
-## Usage Example
+## Core Concepts
 
 ### ArksEndpoint
 `ArksEndpoint` defines and manages routing rules for the API Gateway, dynamically mapping requests to backend services (ArksApplication) and generating a standardized HTTPRoute that binds to a pre-created Gateway.
@@ -78,7 +78,7 @@ status:
     weight: 5
 ```
 
-- `metadata.name`: must match the model name used in request body(OpenAI-compatible APIs ). This value maps to ArksApplication.spec.servedModelName or ArksApplication.spec.model.name.
+- `metadata.name`: the name matches the model name used in request body(OpenAI-compatible APIs). And also name must match either ArksApplication.spec.servedModelName or ArksApplication.spec.model.name to enable dynamic service discovery.
 - `metadata.namespace`: is used for tenant isolation.
 - `spec.defaultWeight`: Default routing weight for dynamically discovered services.
 - `spec.matchConfigs`: Defines the request matching rules (method + path).
@@ -88,7 +88,7 @@ status:
 ### ArksToken
 Defines accessible endpoints, rate limit, and quota per token.
 ```
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksToken
 metadata:
   name: user1
@@ -135,7 +135,7 @@ spec:
 ### ArksQuota
 Manages token usage quota.
 ```
-apiVersion: arks.scitix.ai/v1
+apiVersion: arks.ai/v1
 kind: ArksQuota
 metadata:
   name: quota-deepseek-r1
@@ -145,7 +145,7 @@ spec:
     - name: prompt
       value: 1000
     - name: response
-      value: 500
+      value: 4000
     - name: total
       value: 5000
 status:
@@ -166,6 +166,61 @@ status:
 - `status.quotaStatus[]`: Current usage per quota type:
   - `name`: Quota type.
   - `used`: Amount already used.
+
+## Example Usage
+
+### Case 1: Token only limit `tpm`
+
+```yaml
+apiVersion: arks.ai/v1
+kind: ArksToken
+metadata:
+  name: user1
+  namespace: tenant1
+spec:
+  token: "sk-xxxxxxxxxx"
+  qos:
+    - arksEndpoint:
+        name: simple-model
+      rateLimits:
+        - type: tpm
+          value: 500
+```
+
+This token only limits tokens per minute (TPM), without any RPM or quota restriction. TPM calculates the total tokens(including prompt and response tokens).
+
+### Case 2: Token only use quota, without rate limit
+
+```yaml
+apiVersion: arks.ai/v1
+kind: ArksToken
+metadata:
+  name: user1
+  namespace: tenant1
+spec:
+  token: "sk-xxxxxxxxxx"
+  qos:
+    - arksEndpoint:
+        name: simple-model
+      quota:
+        name: simple-model-quota
+---      
+apiVersion: arks.ai/v1
+kind: ArksQuota
+metadata:
+  name: simple-model-quota
+  namespace: tenant1
+spec:
+  quotas:
+    - name: prompt
+      value: 1000
+    - name: response
+      value: 4000
+    - name: total
+      value: 5000
+```
+If any of the defined quota types (prompt, response, or total) exceeds its specified limit, the request will be rejected with a 429 Too Many Requests status code.
+
 
 ## Planned Enhancements
 - Support for more flexible routing strategies, including dynamic load balancing.
