@@ -45,8 +45,10 @@ type RateLimit struct {
 
 type ArksQos struct {
 	ArksEndpoint corev1.LocalObjectReference `json:"arksEndpoint"`
-	RateLimits   []RateLimit                 `json:"rateLimits"`
-	Quota        corev1.LocalObjectReference `json:"quota"`
+	// +optional
+	RateLimits []RateLimit `json:"rateLimits"`
+	// +optional
+	Quota corev1.LocalObjectReference `json:"quota"`
 }
 
 // ArksTokenSpec defines the desired state of ArksToken.

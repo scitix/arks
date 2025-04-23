@@ -5,7 +5,7 @@ go 1.24.0
 godebug default=go1.23
 
 require (
-	github.com/envoyproxy/go-control-plane v0.13.0
+	github.com/envoyproxy/go-control-plane/envoy v1.32.3
 	github.com/google/uuid v1.6.0
 	github.com/json-iterator/go v1.1.12
 	github.com/onsi/ginkgo/v2 v2.23.3

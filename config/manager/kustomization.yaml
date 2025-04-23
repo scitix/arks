@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: docker.io/scitixai/arks-opreator
-  newTag: 8cb78ec
+  newTag: 5753e1e

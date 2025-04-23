@@ -50,13 +50,13 @@
 
 More docs:
 
-[Model Usage](docs/model-usage.md)
+- [Roadmap](docs/roadmap.md)
 
-[Application Usage](docs/application-usage.md)
+- [Model Usage](docs/model-usage.md)
 
-[Gateway Usage](docs/gateway-usage.md)
+- [Application Usage](docs/application-usage.md)
 
-[Roadmap](docs/roadmap.md)
+- [Gateway Usage](docs/gateway-usage.md)
 
 ## Quick Start
 ### Prerequisites

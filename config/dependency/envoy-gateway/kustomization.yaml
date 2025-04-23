@@ -1,4 +1,4 @@
 kind: Kustomization
 
 resources:
-- https://github.com/envoyproxy/gateway/releases/download/v1.1.0/install.yaml
+- https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml

@@ -122,4 +122,23 @@ spec:
         response: 
           body: Streamed
       messageTimeout: 5s
-
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: healthcheck
+  namespace: arks-operator-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: arks-eg
+  healthCheck:
+    passive:
+      baseEjectionTime: 30s
+      consecutive5XxErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutiveLocalOriginFailures: 3
+      interval: 30s
+      maxEjectionPercent: 100
+      splitExternalLocalOriginErrors: false
