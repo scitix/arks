@@ -112,11 +112,15 @@ spec:
   - name: grpc
     port: 50052
     protocol: TCP
-    targetPort: 50052
+    targetPort: grpc
   - name: metrics
-    port: 8080
+    port: 9110
     protocol: TCP
     targetPort: metrics
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: http
   selector:
     app: arks-gateway-plugins
 ---
@@ -170,8 +174,11 @@ spec:
         name: main
         ports:
         - containerPort: 50052
-        - containerPort: 8080
+          name: grpc
+        - containerPort: 9110
           name: metrics
+        - containerPort: 8080
+          name: http
         resources:
           limits:
             cpu: 1
@@ -333,7 +340,4 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /v1/chat/completions
-    - path:
-        type: PathPrefix
-        value: /v1/completions
+        value: /v1

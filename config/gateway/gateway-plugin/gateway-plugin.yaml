@@ -12,11 +12,15 @@ spec:
     - name: grpc
       protocol: TCP
       port: 50052
-      targetPort: 50052
+      targetPort: grpc
     - name: metrics
       protocol: TCP
-      port: 8080
+      port: 9110
       targetPort: metrics
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -51,8 +55,11 @@ spec:
           args:
             - -redis.addrs=arks-redis-master:6379
           ports:
-            - containerPort: 50052
+            - name: grpc
+              containerPort: 50052
             - name: metrics
+              containerPort: 9110
+            - name: http
               containerPort: 8080
           resources:
             requests:
@@ -89,10 +96,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /v1/chat/completions
-        - path:
-            type: PathPrefix
-            value: /v1/completions
+            value: /v1
       # FIX: remove this 
       # backendRefs:
       #   - name: arks-gateway-plugins
