@@ -31,7 +31,7 @@ func (s *Server) handleGetModels(w http.ResponseWriter, r *http.Request) {
 
 	var modelList []openai.Model
 
-	modelNames, err := s.configProvider.GetModelList(context.Background(), token)
+	modelNames, err := s.configProvider.GetModelsByToken(context.Background(), token)
 	if err != nil {
 		klog.Errorf("error in getting model list: %v", err)
 		http.Error(w, "error in getting model list", http.StatusInternalServerError)
@@ -40,7 +40,7 @@ func (s *Server) handleGetModels(w http.ResponseWriter, r *http.Request) {
 
 	for _, modelName := range modelNames {
 		modelList = append(modelList, openai.Model{
-			ID: modelName,
+			ID:     modelName,
 			Object: "model",
 		})
 	}

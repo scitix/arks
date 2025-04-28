@@ -96,6 +96,17 @@ spec:
         - name: arks-gateway-plugins
           port: 8080
 ---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: skip-ext-proc
+  namespace: arks-operator-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: arks-gateway-http-router
+---
 # this is a dummy route for incoming request and,
 # then request is routed to httproute using model name OR
 # request is routed based on the target for that model service
@@ -109,7 +120,7 @@ spec:
   parentRefs:
     - name: arks-eg
   rules:
-    # TODO: match all routes?
+    # TODO: match method
     - matches:
         - path:
             type: PathPrefix
@@ -130,13 +141,13 @@ metadata:
   namespace: arks-operator-system
 spec:
   targetRef:
-    # group: gateway.networking.k8s.io
-    # kind: Gateway
-    # name: arks-eg
-    # FIX: use gateway instead of HTTPRoute?
     group: gateway.networking.k8s.io
-    kind: HTTPRoute
-    name: arks-reserved-router
+    kind: Gateway
+    name: arks-eg
+    # FIX: use gateway instead of HTTPRoute?
+    # group: gateway.networking.k8s.io
+    # kind: HTTPRoute
+    # name: arks-reserved-router
   extProc:
     - backendRefs:
         - name: arks-gateway-plugins

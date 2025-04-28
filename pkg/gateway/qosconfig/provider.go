@@ -30,6 +30,7 @@ type ConfigProvider interface {
 	GetQosByToken(ctx context.Context, token string, model string) (*UserQos, error)
 	GetQuotaConfig(ctx context.Context, namespace string, quotaName string) (*QuotaConfig, error)
 	GetModelList(ctx context.Context, namespace string) ([]string, error)
+	GetModelsByToken(ctx context.Context, token string) ([]string, error)
 	Start(ctx context.Context) error
 
 	// Refresh(ctx context.Context) error
