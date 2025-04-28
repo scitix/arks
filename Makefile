@@ -4,7 +4,7 @@ VERSION ?= $(shell git describe --tags --always)
 DOCKERFILE_PATH ?= dockerfiles
 IMAGES := arks-operator arks-gateway-plugins
 # note: to be deprecated
-IMG ?= ${REPO}/arks-opreator:$(VERSION)
+IMG ?= ${REPO}/arks-operator:$(VERSION)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
