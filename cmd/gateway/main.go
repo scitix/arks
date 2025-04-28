@@ -20,8 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"net"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -32,15 +30,10 @@ import (
 	"github.com/arks-ai/arks/pkg/gateway/qosconfig"
 	"github.com/arks-ai/arks/pkg/gateway/quota"
 	"github.com/arks-ai/arks/pkg/gateway/ratelimiter"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
-	"google.golang.org/grpc"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
-
-	extProcPb "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
-	healthPb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var (
@@ -59,6 +52,7 @@ type Settings struct {
 
 type ServerSettings struct {
 	GrpcPort int
+	HttpPort int
 	LogLevel int
 }
 
@@ -100,7 +94,8 @@ type MetricsSettings struct {
 
 func initFlags(s *Settings) {
 	// Server flags
-	flag.IntVar(&s.Server.GrpcPort, "server.port", 50052, "gRPC server port")
+	flag.IntVar(&s.Server.GrpcPort, "server.grpc-port", 50052, "gRPC server port")
+	flag.IntVar(&s.Server.HttpPort, "server.http-port", 8080, "http server port")
 	flag.IntVar(&s.Server.LogLevel, "server.log-level", 0, "number for the log level verbosity")
 
 	// flag.StringVar(&s.Server.LogLevel, "server.log-level", "info", "log level (debug, info, warn, error)")
@@ -117,7 +112,7 @@ func initFlags(s *Settings) {
 	flag.StringVar(&s.Quota.KeyPrefix, "quota.key-prefix", "arks-quota", "key prefix for quota")
 
 	// Metrics flags
-	flag.IntVar(&s.Metrics.Port, "metrics.port", 8080, "Prometheus metrics port")
+	flag.IntVar(&s.Metrics.Port, "metrics.port", 9110, "Prometheus metrics port")
 
 	// TODO: klog level set
 	klog.InitFlags(flag.CommandLine)
@@ -203,9 +198,7 @@ func main() {
 	}
 
 	// run server
-
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// TODO: start in server??
 	if err := provider.Start(ctx); err != nil {
@@ -214,53 +207,27 @@ func main() {
 
 	klog.Infof("config provider start")
 
-	// grpc server init
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", settings.Server.GrpcPort))
-	if err != nil {
-		klog.Fatalf("failed to listen: %v", err)
-	}
-
-	s := grpc.NewServer()
-
-	extProcPb.RegisterExternalProcessorServer(s, gateway.NewServer(ratelimiter, quotaService, provider))
-	healthPb.RegisterHealthServer(s, gateway.NewHealthCheckServer())
-
+	gw := gateway.NewServer(ratelimiter, quotaService, provider)
+	// gprc server
+	gw.StartGrpcServer(settings.Server.GrpcPort)
+	// http server
+	gw.StartHttpServer(settings.Server.HttpPort)
 	// metrics server
-	startMetricsServer(settings.Metrics.Port)
+	gw.StartMetricsServer(settings.Metrics.Port)
+
 	// shutdown graceful
-	shutdownComplete := make(chan struct{})
-	go func() {
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-		<-sigChan
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
 
-		klog.Info("Received shutdown signal, initiating graceful shutdown...")
-		cancel()
-		stopped := make(chan struct{})
-		go func() {
-			s.GracefulStop()
-			close(stopped)
-		}()
+	klog.Info("Received shutdown signal, initiating graceful shutdown...")
+	defer cancel()
 
-		select {
-		case <-stopped:
-			klog.Info("gRPC server stopped gracefully")
-		case <-time.After(1 * time.Second):
-			klog.Warning("Forcing gRPC server shutdown after timeout")
-			s.Stop()
-		}
-
-		close(shutdownComplete)
-	}()
-
-	klog.Infof("Starting gRPC server on port %d", settings.Server.GrpcPort)
-	if err := s.Serve(lis); err != nil {
-		klog.Errorf("gRPC server failed: %v", err)
-		cancel()
+	if err := gw.GracefullyShutdown(ctx); err != nil {
+		klog.Errorf("servers shutdown err, %v", err)
+		os.Exit(1)
 	}
 
-	<-shutdownComplete
-	klog.Info("Server shutdown completed")
 }
 
 func createRateLimiter(s *RateLimiterSettings) (ratelimiter.RateLimterInterface, error) {
@@ -300,21 +267,4 @@ func createConfigProvider(s *ProviderSettings) (qosconfig.ConfigProvider, error)
 		// todo: file, redis config
 	}
 	return nil, fmt.Errorf("invalid config type: %s", s.Type)
-}
-
-func startMetricsServer(port int) {
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler())
-
-	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: mux,
-	}
-
-	go func() {
-		klog.Infof("Starting metrics server on port %d", port)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			klog.Errorf("Metrics server failed: %v", err)
-		}
-	}()
 }

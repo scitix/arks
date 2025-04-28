@@ -18,13 +18,19 @@ package gateway
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/arks-ai/arks/pkg/gateway/metrics"
 	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/klog/v2"
@@ -43,6 +49,10 @@ type Server struct {
 	configProvider  qosconfig.ConfigProvider
 	collector       *metrics.DefaultMetricsCollector
 	processingTimes sync.Map
+
+	httpServer    *http.Server
+	metricsServer *http.Server
+	grpcServer    *grpc.Server
 }
 
 type processingTime struct {
@@ -125,6 +135,127 @@ func (s *Server) Process(srv extProcPb.ExternalProcessor_ProcessServer) error {
 			klog.Infof("send error %v", err)
 		}
 	}
+}
+
+func (s *Server) StartHttpServer(port int) {
+	// r := mux.NewRouter()
+	// r.HandleFunc("/v1/models", s.handleGetModels)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/models", s.handleGetModels)
+	s.httpServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	go func() {
+		klog.Infof("Starting http server on port %d", port)
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Fatalf("http server failed: %v", err)
+		}
+	}()
+}
+
+func (s *Server) StartMetricsServer(port int) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	s.metricsServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	go func() {
+		klog.Infof("Starting metrics server on port %d", port)
+		if err := s.metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			klog.Fatalf("Metrics server failed: %v", err)
+		}
+	}()
+}
+
+func (s *Server) StartGrpcServer(port int) {
+
+	s.grpcServer = grpc.NewServer()
+	extProcPb.RegisterExternalProcessorServer(s.grpcServer, s)
+	healthPb.RegisterHealthServer(s.grpcServer, NewHealthCheckServer())
+
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		klog.Fatalf("failed to listen: %v", err)
+	}
+
+	go func() {
+		klog.Infof("Starting gRPC server on port %d", port)
+		if err := s.grpcServer.Serve(listener); err != nil {
+			klog.Fatalf("gRPC server failed: %v", err)
+		}
+	}()
+}
+
+func (s *Server) GracefullyShutdown(ctx context.Context) error {
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, 3) // collecting errors
+
+	if s.httpServer != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			klog.Info("Shutting down HTTP server...")
+			if err := s.httpServer.Shutdown(ctx); err != nil {
+				errChan <- fmt.Errorf("HTTP server shutdown error: %v", err)
+			}
+		}()
+	}
+
+	if s.metricsServer != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			klog.Info("Shutting down metrics server...")
+			if err := s.metricsServer.Shutdown(ctx); err != nil {
+				errChan <- fmt.Errorf("Metrics server shutdown error: %v", err)
+			}
+		}()
+	}
+
+	if s.grpcServer != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			klog.Info("Shutting down gRPC server...")
+			stopped := make(chan struct{})
+			go func() {
+				s.grpcServer.GracefulStop()
+				close(stopped)
+			}()
+
+			select {
+			case <-ctx.Done():
+				s.grpcServer.Stop()
+				errChan <- fmt.Errorf("gRPC server shutdown timeout")
+			case <-stopped:
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errChan)
+
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		var errMsg strings.Builder
+		for _, err := range errors {
+			errMsg.WriteString(err.Error() + "; ")
+		}
+		return fmt.Errorf("shutdown errors: %s", errMsg.String())
+	}
+
+	klog.Info("All servers shutdown successfully")
+	return nil
 }
 
 func NewHealthCheckServer() *HealthServer {
