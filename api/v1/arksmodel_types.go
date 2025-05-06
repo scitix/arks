@@ -67,6 +67,8 @@ type ArksModelStorage struct {
 	// PVC defines the storage type to store the specified model.
 	// Storage directory path: Qwen/QwQ-32B
 	PVC *ArksModelStoragePVC `json:"pvc,omitempty"`
+	// +optional
+	SubPath string `json:"subPath,omitempty"`
 }
 
 // ArksModelCondition represents the state of a model volume condition.
