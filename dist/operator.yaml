@@ -5856,6 +5856,8 @@ spec:
                     required:
                     - spec
                     type: object
+                  subPath:
+                    type: string
                 type: object
             required:
             - model

@@ -224,7 +224,7 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 						},
 						{
 							Name:  "MODEL_PATH",
-							Value: generateModelPath(model.Namespace, model.Name),
+							Value: generateModelPath(model),
 						},
 					}
 
@@ -329,8 +329,11 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 	return ctrl.Result{}, nil
 }
 
-func generateModelPath(namespace, name string) string {
-	return fmt.Sprintf("/models/%s/%s", namespace, name)
+func generateModelPath(model *arksv1.ArksModel) string {
+	if model.Spec.Storage.SubPath != "" {
+		return model.Spec.Storage.SubPath
+	}
+	return fmt.Sprintf("/models/%s/%s", model.Namespace, model.Name)
 }
 
 func generateWorkerPodName(model *arksv1.ArksModel) string {

@@ -266,7 +266,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 		case string(arksv1.ArksDriverLWS): // LWS
 			if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
 				if apierrors.IsNotFound(err) {
-					lws, err := generateLws(application, model.Spec.Storage.PVC.Name)
+					lws, err := generateLws(application, model)
 					if err != nil {
 						application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
 						updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", "Not support the specified runtime")
@@ -362,18 +362,18 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 	return ctrl.Result{}, nil
 }
 
-func generateLws(application *arksv1.ArksApplication, pvcName string) (*lwsapi.LeaderWorkerSet, error) {
+func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*lwsapi.LeaderWorkerSet, error) {
 	image, err := getApplicationImage(application)
 	if err != nil {
 		return nil, err
 	}
 
-	leaderCommand, err := generateLeaderCommand(application)
+	leaderCommand, err := generateLeaderCommand(application, model)
 	if err != nil {
 		return nil, err
 	}
 
-	workerCommand, err := generateWorkerCommand(application)
+	workerCommand, err := generateWorkerCommand(application, model)
 	if err != nil {
 		return nil, err
 	}
@@ -393,7 +393,7 @@ func generateLws(application *arksv1.ArksApplication, pvcName string) (*lwsapi.L
 			Name: arksApplicationModelVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
+					ClaimName: model.Spec.Storage.PVC.Name,
 				},
 			},
 		},
@@ -543,11 +543,11 @@ func getApplicationImage(application *arksv1.ArksApplication) (string, error) {
 	}
 }
 
-func generateLeaderCommand(application *arksv1.ArksApplication) ([]string, error) {
+func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel) ([]string, error) {
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeVLLM):
 		args := "/bin/bash /vllm-workspace/examples/online_serving/multi-node-serving.sh leader --ray_cluster_size=$(LWS_GROUP_SIZE); python3 -m vllm.entrypoints.openai.api_server --port 8080"
-		args = fmt.Sprintf("%s --model %s", args, generateModelPath(application.Namespace, application.Spec.Model.Name))
+		args = fmt.Sprintf("%s --model %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tensor-parallel-size %d", args, application.Spec.TensorParallelSize)
@@ -582,14 +582,14 @@ func generateLeaderCommand(application *arksv1.ArksApplication) ([]string, error
 	}
 }
 
-func generateWorkerCommand(application *arksv1.ArksApplication) ([]string, error) {
+func generateWorkerCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel) ([]string, error) {
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeVLLM):
 		command := []string{"/bin/bash", "-c", "/bin/bash /vllm-workspace/examples/online_serving/multi-node-serving.sh worker --ray_address=$(LWS_LEADER_ADDRESS)"}
 		return command, nil
 	case string(arksv1.ArksRuntimeSGLang):
 		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code"
-		args = fmt.Sprintf("%s --model-path /models/%s/%s", args, application.Namespace, application.Spec.Model.Name)
+		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
@@ -602,7 +602,7 @@ func generateWorkerCommand(application *arksv1.ArksApplication) ([]string, error
 		}
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeDynamo):
-		args := fmt.Sprintf("dynamo run in=dyn://$(LWS_LEADER_ADDRESS) out=vllm /models/%s/%s", application.Namespace, application.Spec.Model.Name)
+		args := fmt.Sprintf("dynamo run in=dyn://$(LWS_LEADER_ADDRESS) out=vllm %s", generateModelPath(model))
 		args = fmt.Sprintf("%s --model-name %s", args, getServedModelName(application))
 		for i := range application.Spec.ExtraOptions {
 			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
