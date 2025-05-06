@@ -12,11 +12,15 @@ spec:
     - name: grpc
       protocol: TCP
       port: 50052
-      targetPort: 50052
+      targetPort: grpc
     - name: metrics
       protocol: TCP
-      port: 8080
+      port: 9110
       targetPort: metrics
+    - name: http
+      protocol: TCP
+      port: 8080
+      targetPort: http
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -51,8 +55,11 @@ spec:
           args:
             - -redis.addrs=arks-redis-master:6379
           ports:
-            - containerPort: 50052
+            - name: grpc
+              containerPort: 50052
             - name: metrics
+              containerPort: 9110
+            - name: http
               containerPort: 8080
           resources:
             requests:
@@ -72,6 +79,34 @@ spec:
                   fieldPath: metadata.namespace
       serviceAccountName: arks-gateway-plugins
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: arks-gateway-http-router
+  namespace: arks-operator-system
+spec:
+  parentRefs:
+    - name: arks-eg
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1/models
+      backendRefs:
+        - name: arks-gateway-plugins
+          port: 8080
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: skip-ext-proc
+  namespace: arks-operator-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    name: arks-gateway-http-router
+---
 # this is a dummy route for incoming request and,
 # then request is routed to httproute using model name OR
 # request is routed based on the target for that model service
@@ -85,7 +120,7 @@ spec:
   parentRefs:
     - name: arks-eg
   rules:
-    # TODO: match all routes?
+    # TODO: match method
     - matches:
         - path:
             type: PathPrefix
@@ -93,6 +128,7 @@ spec:
         - path:
             type: PathPrefix
             value: /v1/completions
+
       # FIX: remove this 
       # backendRefs:
       #   - name: arks-gateway-plugins
@@ -108,7 +144,7 @@ spec:
     group: gateway.networking.k8s.io
     kind: Gateway
     name: arks-eg
-    # FIX: use gateway instead of HTTPRoute
+    # FIX: use gateway instead of HTTPRoute?
     # group: gateway.networking.k8s.io
     # kind: HTTPRoute
     # name: arks-reserved-router
@@ -122,4 +158,23 @@ spec:
         response: 
           body: Streamed
       messageTimeout: 5s
-
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: healthcheck
+  namespace: arks-operator-system
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: arks-eg
+  healthCheck:
+    passive:
+      baseEjectionTime: 30s
+      consecutive5XxErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutiveLocalOriginFailures: 3
+      interval: 30s
+      maxEjectionPercent: 100
+      splitExternalLocalOriginErrors: false

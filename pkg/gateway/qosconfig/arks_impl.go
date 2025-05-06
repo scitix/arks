@@ -374,3 +374,24 @@ func (p *ArksProvider) GetModelList(ctx context.Context, namespace string) ([]st
 	}
 	return models, nil
 }
+
+func (p *ArksProvider) GetModelsByToken(ctx context.Context, token string) ([]string, error) {
+	var tokenList arksv1.ArksTokenList
+	if err := p.client.List(ctx, &tokenList,
+		client.MatchingFields{"spec.token": token}, // use index to list
+	); err != nil {
+		return nil, err
+	}
+
+	if len(tokenList.Items) == 0 {
+		return nil, fmt.Errorf("token not found: %s", token)
+	}
+
+	obj := tokenList.Items[0]
+	models := make([]string, 0)
+	for _, qos := range obj.Spec.Qos {
+		models = append(models, qos.ArksEndpoint.Name)
+	}
+	return models, nil
+
+}

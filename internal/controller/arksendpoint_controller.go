@@ -71,7 +71,7 @@ func (r *ArksEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 30,
 		}).
-		For(&arksv1.ArksEndpoint{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		For(&arksv1.ArksEndpoint{}, builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
 		Named("arksendpoint").
 		Watches(
 			&arksv1.ArksApplication{},
@@ -103,8 +103,14 @@ func (r *ArksEndpointReconciler) filterApp(newObj, oldObj client.Object) bool {
 			if err != nil {
 				return false
 			}
-			// should add in route
-			return !arksEndpointIncludesAppService(ep, newObj.GetName())
+
+			if isArksApplicationReady(newObj) {
+				// add in route
+				return !arksEndpointIncludesAppService(ep, newObj.GetName())
+			} else {
+				// remove in route
+				return arksEndpointIncludesAppService(ep, newObj.GetName())
+			}
 		}
 		return false
 	} else if newObj == nil {
@@ -122,8 +128,18 @@ func (r *ArksEndpointReconciler) filterApp(newObj, oldObj client.Object) bool {
 		return false
 	} else {
 		// update func
-		return getArksEndpointNameFromApplication(oldObj) != getArksEndpointNameFromApplication(newObj)
-
+		// return getArksEndpointNameFromApplication(oldObj) != getArksEndpointNameFromApplication(newObj)
+		// status changed ?
+		epName := getArksEndpointNameFromApplication(newObj)
+		if epName != "" {
+			ep := &arksv1.ArksEndpoint{}
+			err := r.Get(context.Background(), types.NamespacedName{Name: epName, Namespace: newObj.GetNamespace()}, ep)
+			if err != nil {
+				return false
+			}
+			return isArksApplicationReady(oldObj) != isArksApplicationReady(newObj)
+		}
+		return false
 	}
 }
 
@@ -231,6 +247,7 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 
 	var backendRefs []gatewayv1.HTTPBackendRef
 
+	// TODO: remove not ready services
 	staticRouteMap := make(map[string]gatewayv1.HTTPBackendRef)
 	for _, static := range ep.Spec.RouteConfigs {
 		staticRouteMap[string(static.Name)] = static
@@ -245,7 +262,10 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 			klog.V(4).InfoS("application service exist in static route", "service", svcName)
 			continue
 		}
-
+		if app.Spec.Replicas != int(app.Status.ReadyReplicas) {
+			klog.V(4).InfoS("application status not ready", "service", svcName)
+			continue
+		}
 		// add to backendRefs
 		port := gatewayv1.PortNumber(8080)
 		backendRefs = append(backendRefs, gatewayv1.HTTPBackendRef{
@@ -343,6 +363,17 @@ func getArksEndpointNameFromApplication(obj client.Object) string {
 	}
 
 	return app.Spec.ServedModelName
+}
+
+func isArksApplicationReady(obj client.Object) bool {
+	if obj == nil {
+		return false
+	}
+	app, ok := obj.(*arksv1.ArksApplication)
+	if !ok {
+		return false
+	}
+	return app.Spec.Replicas == int(app.Status.ReadyReplicas)
 }
 
 func arksEndpointIncludesAppService(ep *arksv1.ArksEndpoint, appName string) bool {

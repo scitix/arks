@@ -6101,8 +6101,6 @@ spec:
                       type: array
                   required:
                   - arksEndpoint
-                  - quota
-                  - rateLimits
                   type: object
                 type: array
               token:

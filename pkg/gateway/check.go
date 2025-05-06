@@ -60,7 +60,10 @@ func (s *Server) doTokenRateLimit(ctx context.Context, qos *qosconfig.UserQos, c
 
 // // in response body
 func (s *Server) doTokenQuotaLimit(ctx context.Context, qos *qosconfig.UserQos, countMap map[string]int64) error {
-	quotaConf, err := s.configProvider.GetQuotaConfig(ctx, qos.Namespace, qos.QuotaName)
+	if qos.QuotaName == ""{
+		return nil
+	}
+ 	quotaConf, err := s.configProvider.GetQuotaConfig(ctx, qos.Namespace, qos.QuotaName)
 	if err != nil {
 		return err
 	}
