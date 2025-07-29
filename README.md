@@ -155,6 +155,7 @@ Curl the example app through Envoy proxy:
 ``` bash
 curl http://${ENDPOINT}/v1/chat/completions -k \
   -H "Authorization: Bearer sk-test123456" \
+  -H "Content-Type: application/json" \
   -d '{"model": "qwen-7b", "messages": [{"role": "user", "content": "Hello, who are you?"}]}'
 ```
 
