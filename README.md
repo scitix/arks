@@ -1,6 +1,9 @@
 # Arks
 
-## Overview
+[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+
+[简体中文](README-zh.md) | English
+
 *Arks* is an end-to-end framework for managing LLM-based applications within Kubernetes clusters. It provides a robust and extensible infrastructure tailored for deploying, orchestrating, and scaling LLM inference workloads in cloud-native environments.
 
 
