@@ -424,6 +424,21 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 		})
 	}
 
+	readinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt32(8080),
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+	if application.Spec.InstanceSpec.ReadinessProbe != nil {
+		readinessProbe = application.Spec.InstanceSpec.ReadinessProbe
+	}
+
+	livenessProbe := application.Spec.InstanceSpec.LivenessProbe
+
 	lws := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: application.Namespace,
@@ -463,15 +478,8 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 										ContainerPort: 8080,
 									},
 								},
-								ReadinessProbe: &corev1.Probe{
-									ProbeHandler: corev1.ProbeHandler{
-										TCPSocket: &corev1.TCPSocketAction{
-											Port: intstr.FromInt32(8080),
-										},
-									},
-									InitialDelaySeconds: 15,
-									PeriodSeconds:       10,
-								},
+								ReadinessProbe: readinessProbe,
+								LivenessProbe:  livenessProbe,
 							},
 						},
 						Volumes: volumes,

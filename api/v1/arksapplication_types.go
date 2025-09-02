@@ -130,6 +130,14 @@ type ArksInstanceSpec struct {
 	// +listType=atomic
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
+	// Periodic probe of container liveness.
+	// +optional
+	LivenessProbe *corev1.Probe `json:"livenessProbe"`
+
+	// Periodic probe of container readiness.
+	// +optional
+	ReadinessProbe *corev1.Probe `json:"readinessProbe"`
+
 	// ServiceAccountName is the name of the ServiceAccount to use to run leader/worker pod.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
@@ -172,6 +180,7 @@ type ArksApplicationSpec struct {
 
 	// +optional
 	TensorParallelSize int `json:"tensorParallelSize"`
+
 	// +optional
 	ExtraOptions []string `json:"extraOptions"`
 
