@@ -56,7 +56,6 @@ def download_model():
             ret=snapshot_download(
                 repo_id=MODEL_NAME,
                 local_dir=MODEL_PATH,
-                resume_download=True,
                 token=HF_TOKEN,  # Use Token if provided
             )
             print(f"Model download completed successfully!{ret}")
