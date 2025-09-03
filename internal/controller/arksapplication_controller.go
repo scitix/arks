@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -363,7 +364,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 }
 
 func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*lwsapi.LeaderWorkerSet, error) {
-	image, err := getApplicationImage(application)
+	image, err := getApplicationRuntimeImage(application)
 	if err != nil {
 		return nil, err
 	}
@@ -423,6 +424,21 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 		})
 	}
 
+	readinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt32(8080),
+			},
+		},
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       10,
+	}
+	if application.Spec.InstanceSpec.ReadinessProbe != nil {
+		readinessProbe = application.Spec.InstanceSpec.ReadinessProbe
+	}
+
+	livenessProbe := application.Spec.InstanceSpec.LivenessProbe
+
 	lws := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: application.Namespace,
@@ -462,15 +478,8 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 										ContainerPort: 8080,
 									},
 								},
-								ReadinessProbe: &corev1.Probe{
-									ProbeHandler: corev1.ProbeHandler{
-										TCPSocket: &corev1.TCPSocketAction{
-											Port: intstr.FromInt32(8080),
-										},
-									},
-									InitialDelaySeconds: 15,
-									PeriodSeconds:       10,
-								},
+								ReadinessProbe: readinessProbe,
+								LivenessProbe:  livenessProbe,
 							},
 						},
 						Volumes: volumes,
@@ -487,6 +496,7 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 						Affinity:           application.Spec.InstanceSpec.Affinity,
 						NodeSelector:       application.Spec.InstanceSpec.NodeSelector,
 						Tolerations:        application.Spec.InstanceSpec.Tolerations,
+						ImagePullSecrets:   application.Spec.RuntimeImagePullSecrets,
 						Containers: []corev1.Container{
 							{
 								Name:         "worker",
@@ -523,7 +533,7 @@ func generateLwsLabels(application *arksv1.ArksApplication, role string) map[str
 	return podLabels
 }
 
-func getApplicationImage(application *arksv1.ArksApplication) (string, error) {
+func getApplicationRuntimeImage(application *arksv1.ArksApplication) (string, error) {
 	// Make sure the Runtime match with the RuntimeImage.
 	if application.Spec.RuntimeImage != "" {
 		return application.Spec.RuntimeImage, nil
@@ -531,10 +541,22 @@ func getApplicationImage(application *arksv1.ArksApplication) (string, error) {
 
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeVLLM):
+		vllmImage := os.Getenv("ARKS_RUNTIME_DEFAULT_VLLM_IMAGE")
+		if vllmImage != "" {
+			return vllmImage, nil
+		}
 		return "vllm/vllm-openai:v0.8.2", nil
 	case string(arksv1.ArksRuntimeSGLang):
+		sglangImage := os.Getenv("ARKS_RUNTIME_DEFAULT_SGLANG_IMAGE")
+		if sglangImage != "" {
+			return sglangImage, nil
+		}
 		return "lmsysorg/sglang:v0.4.5-cu124", nil
 	case string(arksv1.ArksRuntimeDynamo):
+		dynamoImage := os.Getenv("ARKS_RUNTIME_DEFAULT_DYNAMO_IMAGE")
+		if dynamoImage != "" {
+			return dynamoImage, nil
+		}
 		return "scitixai/k8s/dynamo:vllm", nil
 		// return "docker.io/scitixai/dynamo:vllm", nil
 	default:

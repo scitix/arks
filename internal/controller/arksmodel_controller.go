@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -254,7 +255,7 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 								Containers: []corev1.Container{
 									{
 										Name:    "worker",
-										Image:   "scitixai/arks-scripts:v0.1.0",
+										Image:   getScriptsImage(),
 										Command: []string{"/bin/bash", "-c", "python3 /scripts/download.py"},
 										Env:     envs,
 
@@ -327,6 +328,14 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func getScriptsImage() string {
+	scriptsImage := os.Getenv("ARKS_SCRIPTS_IMAGE")
+	if scriptsImage != "" {
+		return scriptsImage
+	}
+	return "scitixai/arks-scripts:v0.1.0"
 }
 
 func generateModelPath(model *arksv1.ArksModel) string {

@@ -278,8 +278,19 @@ spec:
         body: Streamed
   targetRef:
     group: gateway.networking.k8s.io
+    kind: Gateway
+    name: arks-eg
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: skip-ext-proc
+  namespace: arks-operator-system
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
     kind: HTTPRoute
-    name: arks-reserved-router
+    name: arks-gateway-http-router
 ---
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyProxy
