@@ -335,7 +335,7 @@ func getScriptsImage() string {
 	if scriptsImage != "" {
 		return scriptsImage
 	}
-	return "scitixai/arks-scripts:v0.1.0"
+	return "scitixai/arks-scripts:latest"
 }
 
 func generateModelPath(model *arksv1.ArksModel) string {
