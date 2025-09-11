@@ -27,14 +27,26 @@ metadata:
   name: app-qwen
 spec:
   replicas: 1
+
+  # for multi-node infer
+  size: 2
   tensorParallelSize: 2
+  # for single-node infer
+  # size: 1
+  # tensorParallelSize: 1
+
   runtime: vllm
+
+  # for V100 GPU
+  # extraOptions:
+  # - --dtype=half
+  # - --max-model-len 32768
+
   # Optional, default to spec.model.name
   # servedModelName: qwen-7b
   model:
     name: qwen-7b
   instanceSpec:
-    replicas: 2
     resources:
       limits:
         nvidia.com/gpu: "1"

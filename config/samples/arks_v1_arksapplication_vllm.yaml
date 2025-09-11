@@ -7,6 +7,7 @@ metadata:
   name: app-qwen-vllm
 spec:
   replicas: 1
+  size: 1
   tensorParallelSize: 2
   runtime: vllm
   # Optional, default to spec.model.name
@@ -14,7 +15,6 @@ spec:
   model:
     name: qwen-7b
   instanceSpec:
-    replicas: 2
     resources:
       limits:
         nvidia.com/gpu: "1"

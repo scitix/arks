@@ -41,10 +41,6 @@ const (
 	// ArksApplicationReady is the condition that indicates if the application is ready or not.
 	ArksApplicationReady ArksApplicationConditionType = "Ready"
 
-	ArksDriverDefault ArksDriver = "LWS" // The default driver is LWS
-	ArksDriverLWS     ArksDriver = "LWS"
-	// ArksDriverDynamo  ArksDriver = "Dynamo" // Support in future
-
 	ArksRuntimeDefault ArksRuntime = "vllm" // The default driver is vLLM
 	ArksRuntimeVLLM    ArksRuntime = "vllm"
 	ArksRuntimeSGLang  ArksRuntime = "sglang"
@@ -74,11 +70,6 @@ type ArksApplicationCondition struct {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 type ArksInstanceSpec struct {
-	// Replicas defines the instance number in a deploy set.
-	// +kubebuilder:validation:Optional
-	// +immutable
-	Replicas int `json:"replicas"`
-
 	// Resources define the leader/worker container resources.
 	Resources corev1.ResourceRequirements `json:"resources"`
 
@@ -148,11 +139,13 @@ type ArksInstanceSpec struct {
 type ArksApplicationSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +optional
 	Replicas int `json:"replicas"`
 
-	// Driver defines the underlying driver name. Now support LWS only.
+	// Size defines the inference service group size.
+	// Default is 1 for single node inerfence service
 	// +optional
-	Driver string `json:"driver"` // LWS
+	Size int `json:"size"`
 
 	// Runtime defines the inference runtime.
 	// Now support: vllm, sglang. Default vLLM.
