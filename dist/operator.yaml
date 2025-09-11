@@ -77,10 +77,6 @@ spec:
           spec:
             description: ArksApplicationSpec defines the desired state of ArksApplication.
             properties:
-              driver:
-                description: Driver defines the underlying driver name. Now support
-                  LWS only.
-                type: string
               extraOptions:
                 items:
                   type: string
@@ -1465,10 +1461,6 @@ spec:
                         format: int32
                         type: integer
                     type: object
-                  replicas:
-                    description: Replicas defines the instance number in a deploy
-                      set.
-                    type: integer
                   resources:
                     description: Resources define the leader/worker container resources.
                     properties:
@@ -3498,12 +3490,16 @@ spec:
               servedModelName:
                 description: ServedModelName defines a custom model name.
                 type: string
+              size:
+                description: |-
+                  Size defines the inference service group size.
+                  Default is 1 for single node inerfence service
+                type: integer
               tensorParallelSize:
                 type: integer
             required:
             - instanceSpec
             - model
-            - replicas
             type: object
           status:
             description: ArksApplicationStatus defines the observed state of ArksApplication.
@@ -6848,6 +6844,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - arks.ai
   resources:
   - arksapplications
@@ -7033,7 +7041,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: scitixai/arks-operator:v0.1.1
+        image: scitixai/arks-operator:v0.1.2
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

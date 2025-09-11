@@ -63,7 +63,7 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-        image: scitixai/arks-operator:v0.1.0
+        image: scitixai/arks-operator:v0.1.2
         imagePullPolicy: Always
         name: manager
         ports: []

@@ -7,13 +7,13 @@ metadata:
   name: app-qwen
 spec:
   replicas: 1
+  size: 1
   tensorParallelSize: 2
   runtime: dynamo
   servedModelName: myqwen-7b
   model:
     name: qwen-7b
   instanceSpec:
-    replicas: 2
     env:
     - name: ETCD_ENDPOINTS
       value: http://dynamo-platform-etcd.dynamo-playground:2379
