@@ -48,11 +48,12 @@ const (
 )
 
 const (
-	ArksControllerKeyApplication  = "arks.ai/application"
-	ArksControllerKeyModel        = "arks.ai/model"
-	ArksControllerKeyToken        = "arks.ai/token"
-	ArksControllerKeyQuota        = "arks.ai/quota"
-	ArksControllerKeyWorkLoadRole = "arks.ai/work-load-role"
+	ArksControllerKeyApplication        = "arks.ai/application"
+	ArksControllerKeyModel              = "arks.ai/model"
+	ArksControllerKeyToken              = "arks.ai/token"
+	ArksControllerKeyQuota              = "arks.ai/quota"
+	ArksControllerKeyWorkLoadRole       = "arks.ai/work-load-role"
+	ArksControllerKeyDisaggregationRole = "arks.ai/disaggregation-role"
 
 	ArksWorkLoadRoleLeader = "leader"
 	ArksWorkLoadRoleWorker = "worker"
@@ -70,7 +71,61 @@ type ArksApplicationCondition struct {
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 type ArksInstanceSpec struct {
+	// +optional
+	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty" protobuf:"varint,4,opt,name=terminationGracePeriodSeconds"`
+	// +optional
+	ActiveDeadlineSeconds *int64 `json:"activeDeadlineSeconds,omitempty" protobuf:"varint,5,opt,name=activeDeadlineSeconds"`
+	// +optional
+	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty" protobuf:"bytes,6,opt,name=dnsPolicy,casttype=DNSPolicy"`
+	// +optional
+	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+	// +optional
+	AutomountServiceAccountToken *bool `json:"automountServiceAccountToken,omitempty" protobuf:"varint,21,opt,name=automountServiceAccountToken"`
+	// +optional
+	NodeName string `json:"nodeName,omitempty" protobuf:"bytes,10,opt,name=nodeName"`
+	// +optional
+	HostNetwork bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
+	// +optional
+	HostPID bool `json:"hostPID,omitempty" protobuf:"varint,12,opt,name=hostPID"`
+	// +optional
+	HostIPC bool `json:"hostIPC,omitempty" protobuf:"varint,13,opt,name=hostIPC"`
+	// +optional
+	ShareProcessNamespace *bool `json:"shareProcessNamespace,omitempty" protobuf:"varint,27,opt,name=shareProcessNamespace"`
+	// +optional
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty" protobuf:"bytes,14,opt,name=podSecurityContext"`
+	// +optional
+	Subdomain string `json:"subdomain,omitempty" protobuf:"bytes,17,opt,name=subdomain"`
+	// +optional
+	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty" patchStrategy:"merge" patchMergeKey:"ip" protobuf:"bytes,23,rep,name=hostAliases"`
+	// +optional
+	PriorityClassName string `json:"priorityClassName,omitempty" protobuf:"bytes,24,opt,name=priorityClassName"`
+	// +optional
+	Priority *int32 `json:"priority,omitempty" protobuf:"bytes,25,opt,name=priority"`
+	// +optional
+	RuntimeClassName *string `json:"runtimeClassName,omitempty" protobuf:"bytes,29,opt,name=runtimeClassName"`
+	// +optional
+	EnableServiceLinks *bool `json:"enableServiceLinks,omitempty" protobuf:"varint,30,opt,name=enableServiceLinks"`
+	// +optional
+	PreemptionPolicy *corev1.PreemptionPolicy `json:"preemptionPolicy,omitempty" protobuf:"bytes,31,opt,name=preemptionPolicy"`
+	// +optional
+	Overhead corev1.ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
+	// +optional
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey" protobuf:"bytes,33,opt,name=topologySpreadConstraints"`
+	// +optional
+	SetHostnameAsFQDN *bool `json:"setHostnameAsFQDN,omitempty" protobuf:"varint,35,opt,name=setHostnameAsFQDN"`
+	// +optional
+	OS *corev1.PodOS `json:"os,omitempty" protobuf:"bytes,36,opt,name=os"`
+	// +optional
+	HostUsers *bool `json:"hostUsers,omitempty" protobuf:"bytes,37,opt,name=hostUsers"`
+	// +optional
+	SchedulingGates []corev1.PodSchedulingGate `json:"schedulingGates,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,38,opt,name=schedulingGates"`
+	// +optional
+	ResourceClaims []corev1.PodResourceClaim `json:"resourceClaims,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,39,rep,name=resourceClaims"`
+	// +optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty" protobuf:"bytes,15,opt,name=securityContext"`
+
 	// Resources define the leader/worker container resources.
+	// +optional
 	Resources corev1.ResourceRequirements `json:"resources"`
 
 	// Map of string keys and values that can be used to organize and categorize
@@ -128,6 +183,12 @@ type ArksInstanceSpec struct {
 	// Periodic probe of container readiness.
 	// +optional
 	ReadinessProbe *corev1.Probe `json:"readinessProbe"`
+
+	// +optional
+	StartupProbe *corev1.Probe `json:"startupProbe,omitempty" protobuf:"bytes,22,opt,name=startupProbe"`
+
+	// +optional
+	Lifecycle *corev1.Lifecycle `json:"lifecycle,omitempty" protobuf:"bytes,12,opt,name=lifecycle"`
 
 	// ServiceAccountName is the name of the ServiceAccount to use to run leader/worker pod.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/

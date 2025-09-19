@@ -42,9 +42,10 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	arksv1 "github.com/arks-ai/arks/api/v1"
 	"github.com/arks-ai/arks/internal/controller"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -265,6 +266,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		klog.Errorf("unable to create ArksEndpoint controller: %q", err)
+		os.Exit(1)
+	}
+	if err = (&controller.ArksDisaggregatedApplicationReconciler{
+		Client:     mgr.GetClient(),
+		KubeClient: kubeClient,
+		LWSClient:  lwsClient,
+		Scheme:     mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		klog.Error(err, "unable to create controller", "controller", "ArksDisaggregatedApplication")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

@@ -92,6 +92,12 @@ type ArksModelSpec struct {
 
 	// Storage defines the Storage type specification
 	Storage *ArksModelStorage `json:"storage,omitempty"`
+
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets"`
+
+	// +optional
+	InstanceSpec ArksInstanceSpec `json:"instanceSpec,omitempty"`
 }
 
 // ArksModelStatus defines the observed state of ArksModel.

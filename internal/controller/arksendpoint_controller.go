@@ -67,6 +67,9 @@ func (r *ArksEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &arksv1.ArksApplication{}, "spec.servedModelName", r.ArksAppIndexFunc); err != nil {
 		return fmt.Errorf("failed to set up ArksApplication index: %w", err)
 	}
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &arksv1.ArksDisaggregatedApplication{}, "spec.servedModelName", r.ArksAppIndexFunc); err != nil {
+		return fmt.Errorf("failed to set up ArksDisaggregatedAppication index: %w", err)
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 30,
@@ -75,6 +78,22 @@ func (r *ArksEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("arksendpoint").
 		Watches(
 			&arksv1.ArksApplication{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueFromApp),
+			builder.WithPredicates(
+				predicate.Funcs{
+					UpdateFunc: func(e event.UpdateEvent) bool {
+						return r.filterApp(e.ObjectNew, e.ObjectOld)
+					},
+					CreateFunc: func(e event.CreateEvent) bool {
+						return r.filterApp(e.Object, nil)
+					},
+					DeleteFunc: func(e event.DeleteEvent) bool {
+						return r.filterApp(nil, e.Object)
+					},
+				}),
+		).
+		Watches(
+			&arksv1.ArksDisaggregatedApplication{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueFromApp),
 			builder.WithPredicates(
 				predicate.Funcs{
@@ -245,6 +264,17 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 		return ctrl.Result{}, fmt.Errorf("failed to list ArksApplication: %w", err)
 	}
 
+	var disAppList arksv1.ArksDisaggregatedApplicationList
+	if err := r.List(ctx, &disAppList, &client.ListOptions{
+		// LabelSelector: selector,
+		Namespace: ep.Namespace,
+		FieldSelector: fields.SelectorFromSet(fields.Set{
+			"spec.servedModelName": ep.Name,
+		}),
+	}); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to list ArksDisaggregatedApplication: %w", err)
+	}
+
 	var backendRefs []gatewayv1.HTTPBackendRef
 
 	// TODO: remove not ready services
@@ -278,6 +308,37 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 			},
 		})
 		klog.V(4).InfoS("application service added in http route", "service", svcName)
+	}
+
+	for _, app := range disAppList.Items {
+		// app already in static route config
+		svcName := fmt.Sprintf("%s-router-svc", app.Name)
+		if _, exists := staticRouteMap[svcName]; exists {
+			klog.V(4).InfoS("application service exist in static route", "service", svcName)
+			continue
+		}
+
+		if app.Status.Router.ReadyReplicas > 0 &&
+			app.Status.Prefill.ReadyReplicas == app.Status.Prefill.Replicas &&
+			app.Status.Decode.ReadyReplicas == app.Status.Decode.Replicas {
+			klog.Infof("application %s/%s status is ready", app.Namespace, app.Name)
+		} else {
+			klog.Infof("application %s/%s status is not ready", app.Namespace, app.Name)
+			continue
+		}
+
+		// add to backendRefs
+		port := gatewayv1.PortNumber(8080)
+		backendRefs = append(backendRefs, gatewayv1.HTTPBackendRef{
+			BackendRef: gatewayv1.BackendRef{
+				BackendObjectReference: gatewayv1.BackendObjectReference{
+					Name: gatewayv1.ObjectName(svcName),
+					Port: &port,
+				},
+				Weight: &ep.Spec.DefaultWeight,
+			},
+		})
+		klog.Infof("application service %s/%s added in http route", app.Namespace, app.Name)
 	}
 
 	headerMatch := []gatewayv1.HTTPHeaderMatch{
@@ -369,11 +430,24 @@ func isArksApplicationReady(obj client.Object) bool {
 	if obj == nil {
 		return false
 	}
-	app, ok := obj.(*arksv1.ArksApplication)
-	if !ok {
+	switch obj.(type) {
+	case *arksv1.ArksApplication:
+		app, ok := obj.(*arksv1.ArksApplication)
+		if !ok {
+			return false
+		}
+		return app.Spec.Replicas == int(app.Status.ReadyReplicas)
+	case *arksv1.ArksDisaggregatedApplication:
+		app, ok := obj.(*arksv1.ArksDisaggregatedApplication)
+		if !ok {
+			return false
+		}
+		return app.Status.Router.ReadyReplicas > 0 &&
+			app.Status.Prefill.ReadyReplicas == app.Status.Prefill.Replicas &&
+			app.Status.Decode.ReadyReplicas == app.Status.Decode.Replicas 
+	default:
 		return false
 	}
-	return app.Spec.Replicas == int(app.Status.ReadyReplicas)
 }
 
 func arksEndpointIncludesAppService(ep *arksv1.ArksEndpoint, appName string) bool {

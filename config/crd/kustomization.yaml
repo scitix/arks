@@ -7,6 +7,7 @@ resources:
 - bases/arks.ai_arksquotas.yaml
 - bases/arks.ai_arksmodels.yaml
 - bases/arks.ai_arksendpoints.yaml
+- bases/arks.ai_arksdisaggregatedapplications.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:
