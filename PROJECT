@@ -53,4 +53,13 @@ resources:
   kind: ArksEndpoint
   path: github.com/arks-ai/arks/api/v1
   version: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: arks.ai
+  group: arks
+  kind: ArksDisaggregatedApplication
+  path: github.com/arks-ai/arks/api/v1
+  version: v1
 version: "3"

@@ -240,7 +240,6 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 							},
 						})
 					}
-
 					if apierrors.IsNotFound(err) {
 						workerPod := &corev1.Pod{
 							ObjectMeta: metav1.ObjectMeta{
@@ -251,6 +250,38 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 								},
 							},
 							Spec: corev1.PodSpec{
+								NodeSelector:                  model.Spec.InstanceSpec.NodeSelector,
+								SchedulerName:                 model.Spec.InstanceSpec.SchedulerName,
+								Affinity:                      model.Spec.InstanceSpec.Affinity,
+								Tolerations:                   model.Spec.InstanceSpec.Tolerations,
+								TerminationGracePeriodSeconds: model.Spec.InstanceSpec.TerminationGracePeriodSeconds,
+								ActiveDeadlineSeconds:         model.Spec.InstanceSpec.ActiveDeadlineSeconds,
+								DNSPolicy:                     model.Spec.InstanceSpec.DNSPolicy,
+								DNSConfig:                     model.Spec.InstanceSpec.DNSConfig,
+								AutomountServiceAccountToken:  model.Spec.InstanceSpec.AutomountServiceAccountToken,
+								NodeName:                      model.Spec.InstanceSpec.NodeName,
+								HostNetwork:                   model.Spec.InstanceSpec.HostNetwork,
+								HostPID:                       model.Spec.InstanceSpec.HostPID,
+								HostIPC:                       model.Spec.InstanceSpec.HostIPC,
+								ShareProcessNamespace:         model.Spec.InstanceSpec.ShareProcessNamespace,
+								SecurityContext:               model.Spec.InstanceSpec.PodSecurityContext,
+								Subdomain:                     model.Spec.InstanceSpec.Subdomain,
+								HostAliases:                   model.Spec.InstanceSpec.HostAliases,
+								PriorityClassName:             model.Spec.InstanceSpec.PriorityClassName,
+								Priority:                      model.Spec.InstanceSpec.Priority,
+								RuntimeClassName:              model.Spec.InstanceSpec.RuntimeClassName,
+								EnableServiceLinks:            model.Spec.InstanceSpec.EnableServiceLinks,
+								PreemptionPolicy:              model.Spec.InstanceSpec.PreemptionPolicy,
+								Overhead:                      model.Spec.InstanceSpec.Overhead,
+								TopologySpreadConstraints:     model.Spec.InstanceSpec.TopologySpreadConstraints,
+								SetHostnameAsFQDN:             model.Spec.InstanceSpec.SetHostnameAsFQDN,
+								OS:                            model.Spec.InstanceSpec.OS,
+								HostUsers:                     model.Spec.InstanceSpec.HostUsers,
+								SchedulingGates:               model.Spec.InstanceSpec.SchedulingGates,
+								ResourceClaims:                model.Spec.InstanceSpec.ResourceClaims,
+								ServiceAccountName:            model.Spec.InstanceSpec.ServiceAccountName,
+								ImagePullSecrets:              model.Spec.ImagePullSecrets,
+
 								RestartPolicy: corev1.RestartPolicyNever,
 								Containers: []corev1.Container{
 									{
@@ -260,6 +291,9 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 										Env:     envs,
 
 										TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+
+										ReadinessProbe: model.Spec.InstanceSpec.ReadinessProbe,
+										LivenessProbe:  model.Spec.InstanceSpec.LivenessProbe,
 
 										VolumeMounts: []corev1.VolumeMount{
 											{

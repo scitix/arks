@@ -5,4 +5,5 @@ resources:
 - arks_v1_arksendpoint.yaml
 - arks_v1_arksquota.yaml
 - arks_v1_arkstoken.yaml
+- arks_v1_arksdisaggregatedapplication.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
