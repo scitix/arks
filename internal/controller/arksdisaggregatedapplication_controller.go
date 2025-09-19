@@ -425,7 +425,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(applic
 		return nil, err
 	}
 
-	command, err := r.generateDisaggregationRouterCommand(application)
+	command, err := r.generateDisaggregationRouterCommand(application, false)
 	if err != nil {
 		return nil, err
 	}
@@ -783,6 +783,10 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	if application.Spec.RuntimeImage != "" {
+		return application.Spec.RuntimeImage, nil
+	}
+
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
 		sglangImage := os.Getenv("ARKS_RUNTIME_DEFAULT_SGLANG_IMAGE")
@@ -833,19 +837,30 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDecodeWorkloadLwsLabels
 	return podLabels
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication, miniLb bool) (string, error) {
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
-		args := "python3 -m sglang.srt.disaggregation.mini_lb --host 0.0.0.0 --port 8080"
-		args = fmt.Sprintf("%s --prefill", args)
-		for i := 0; i < application.Spec.Prefill.Replicas; i++ {
-			args = fmt.Sprintf("%s http://%s-prefill-%d.%s-prefill:8080", args, application.Name, i, application.Name)
+		if miniLb {
+			args := "python3 -m sglang.srt.disaggregation.mini_lb --host 0.0.0.0 --port 8080"
+			args = fmt.Sprintf("%s --prefill", args)
+			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
+				args = fmt.Sprintf("%s http://%s-prefill-%d.%s-prefill:8080", args, application.Name, i, application.Name)
+			}
+			args = fmt.Sprintf("%s --decode", args)
+			for i := 0; i < application.Spec.Decode.Replicas; i++ {
+				args = fmt.Sprintf("%s http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
+			}
+			return args, nil
+		} else {
+			args := "python3 sglang_router.launch_router --pd-disaggregation --host 0.0.0.0 --port 8080"
+			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
+				args = fmt.Sprintf("%s --prefill http://%s-prefill-%d.%s-prefill:8080 20000", args, application.Name, i, application.Name)
+			}
+			for i := 0; i < application.Spec.Decode.Replicas; i++ {
+				args = fmt.Sprintf("%s --decode http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
+			}
+			return args, nil
 		}
-		args = fmt.Sprintf("%s --decode", args)
-		for i := 0; i < application.Spec.Decode.Replicas; i++ {
-			args = fmt.Sprintf("%s http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
-		}
-		return args, nil
 	default:
 		return "", errors.New("unsupported runtime")
 	}
