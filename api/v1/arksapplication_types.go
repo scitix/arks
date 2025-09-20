@@ -54,6 +54,7 @@ const (
 	ArksControllerKeyQuota              = "arks.ai/quota"
 	ArksControllerKeyWorkLoadRole       = "arks.ai/work-load-role"
 	ArksControllerKeyDisaggregationRole = "arks.ai/disaggregation-role"
+	ArksControllerKeySglangRouter       = "arks.ai/sglang-router"
 
 	ArksWorkLoadRoleLeader = "leader"
 	ArksWorkLoadRoleWorker = "worker"

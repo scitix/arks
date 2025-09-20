@@ -281,6 +281,11 @@ func (in *ArksDisaggregatedRouter) DeepCopyInto(out *ArksDisaggregatedRouter) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.RouterArgs != nil {
+		in, out := &in.RouterArgs, &out.RouterArgs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.InstanceSpec.DeepCopyInto(&out.InstanceSpec)
 }
 
@@ -307,8 +312,8 @@ func (in *ArksDisaggregatedWorkload) DeepCopyInto(out *ArksDisaggregatedWorkload
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.RuntimeExtraArgs != nil {
-		in, out := &in.RuntimeExtraArgs, &out.RuntimeExtraArgs
+	if in.RuntimeCommonArgs != nil {
+		in, out := &in.RuntimeCommonArgs, &out.RuntimeCommonArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
