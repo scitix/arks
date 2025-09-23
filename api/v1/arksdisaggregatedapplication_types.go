@@ -26,9 +26,15 @@ import (
 
 type ArksDisaggregatedRouter struct {
 	// +optional
-	Replicas int `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 	// +optional
 	CommandOverride []string `json:"commandOverride"`
+	// Port
+	// +optional
+	Port int32 `json:"int32"`
+	// MetricPort
+	// +optional
+	MetricPort int32 `json:"metricPort"`
 	// +optional
 	RouterArgs []string `json:"routerArgs"`
 	// +optional
@@ -37,8 +43,9 @@ type ArksDisaggregatedRouter struct {
 
 type ArksDisaggregatedWorkload struct {
 	// +optional
-	Replicas int `json:"replicas"`
+	Replicas *int32 `json:"replicas"`
 	// +optional
+	// +kubebuilder:validation:Immutable
 	Size int `json:"size"`
 	// +optional
 	LeaderCommandOverride []string `json:"leaderCommandOverride"`
@@ -57,13 +64,20 @@ type ArksDisaggregatedApplicationSpec struct {
 	// Now support: vllm, sglang. Default vLLM.
 	// We will support Dynamo in future.
 	// +optional
+	// +kubebuilder:validation:Immutable
 	Runtime string `json:"runtime"` // vLLM, SGLang, Default vLLM.
+
+	// RouterImage defines the router container image URL.
+	// +optional
+	// +kubebuilder:validation:Immutable
+	RouterImage string `json:"routerImage"`
 
 	// RuntimeImage defines the runtime container image URL.
 	// Specify this only when a specific version of the runtime image is required.
 	// Customized runtime container images must be compatible with the Runtime.
 	// Arks provides a default version of the runtime container image.
 	// +optional
+	// +kubebuilder:validation:Immutable
 	RuntimeImage string `json:"runtimeImage"` // The image of vLLM, SGLang or Dynamo.
 
 	// RuntimeImagePullSecrets defines the runtime image pull secret.
