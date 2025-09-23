@@ -783,6 +783,10 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	if application.Spec.RuntimeImage != "" {
+		return application.Spec.RuntimeImage, nil
+	}
+
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
 		sglangImage := os.Getenv("ARKS_RUNTIME_DEFAULT_SGLANG_IMAGE")
@@ -834,21 +838,44 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDecodeWorkloadLwsLabels
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	var args string
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
-		args := "python3 -m sglang.srt.disaggregation.mini_lb --host 0.0.0.0 --port 8080"
-		args = fmt.Sprintf("%s --prefill", args)
-		for i := 0; i < application.Spec.Prefill.Replicas; i++ {
-			args = fmt.Sprintf("%s http://%s-prefill-%d.%s-prefill:8080", args, application.Name, i, application.Name)
+		if application.Annotations[arksv1.ArksControllerKeySglangRouter] == "mini_lb" {
+			args = "python3 -m sglang.srt.disaggregation.mini_lb --host 0.0.0.0 --port 8080"
+			args = fmt.Sprintf("%s --prefill", args)
+			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
+				args = fmt.Sprintf("%s http://%s-prefill-%d.%s-prefill:8080", args, application.Name, i, application.Name)
+			}
+			args = fmt.Sprintf("%s --decode", args)
+			for i := 0; i < application.Spec.Decode.Replicas; i++ {
+				args = fmt.Sprintf("%s http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
+			}
+			for _, arg := range application.Spec.Router.RouterArgs {
+				args = fmt.Sprintf("%s %s", args, arg)
+			}
+		} else {
+			args = "python3 -m sglang_router.launch_router --pd-disaggregation --host 0.0.0.0 --port 8080"
+			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
+				args = fmt.Sprintf("%s --prefill http://%s-prefill-%d.%s-prefill:8080 20000", args, application.Name, i, application.Name)
+			}
+			for i := 0; i < application.Spec.Decode.Replicas; i++ {
+				args = fmt.Sprintf("%s --decode http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
+			}
+			for _, arg := range application.Spec.Router.RouterArgs {
+				args = fmt.Sprintf("%s %s", args, arg)
+			}
+			if !strings.Contains(args, "prefill-policy") {
+				args = fmt.Sprintf("%s --prefill-policy cache_aware", args)
+			}
+			if !strings.Contains(args, "decode-policy") {
+				args = fmt.Sprintf("%s --decode-policy cache_aware", args)
+			}
 		}
-		args = fmt.Sprintf("%s --decode", args)
-		for i := 0; i < application.Spec.Decode.Replicas; i++ {
-			args = fmt.Sprintf("%s http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
-		}
-		return args, nil
 	default:
 		return "", errors.New("unsupported runtime")
 	}
+	return args, nil
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationLeaderCommand(application *arksv1.ArksDisaggregatedApplication, model *arksv1.ArksModel, disaggregationRole string) (string, error) {
@@ -863,8 +890,8 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationLeaderCom
 		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, r.getServedModelName(application))
 		args = fmt.Sprintf("%s --disaggregation-mode %s", args, disaggregationRole)
-		for i := range workload.RuntimeExtraArgs {
-			args = fmt.Sprintf("%s %s", args, workload.RuntimeExtraArgs[i])
+		for i := range workload.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, workload.RuntimeCommonArgs[i])
 		}
 		if !strings.Contains(args, "enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)
@@ -887,8 +914,8 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationWorkerCom
 		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, r.getServedModelName(application))
 		args = fmt.Sprintf("%s --disaggregation-mode %s", args, disaggregationRole)
-		for i := range workload.RuntimeExtraArgs {
-			args = fmt.Sprintf("%s %s", args, workload.RuntimeExtraArgs[i])
+		for i := range workload.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, workload.RuntimeCommonArgs[i])
 		}
 		if !strings.Contains(args, "enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)

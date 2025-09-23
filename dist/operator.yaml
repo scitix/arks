@@ -9316,7 +9316,7 @@ spec:
                     type: array
                   replicas:
                     type: integer
-                  runtimeExtraArgs:
+                  runtimeCommonArgs:
                     items:
                       type: string
                     type: array
@@ -13898,7 +13898,7 @@ spec:
                     type: array
                   replicas:
                     type: integer
-                  runtimeExtraArgs:
+                  runtimeCommonArgs:
                     items:
                       type: string
                     type: array
@@ -18466,6 +18466,10 @@ spec:
                     type: object
                   replicas:
                     type: integer
+                  routerArgs:
+                    items:
+                      type: string
+                    type: array
                 type: object
               runtime:
                 description: |-
@@ -26693,7 +26697,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: scitixai/arks-operator:v0.1.2
+        image: scitixai/arks-operator:v0.1.3
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

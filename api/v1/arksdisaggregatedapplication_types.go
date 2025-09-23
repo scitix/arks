@@ -30,6 +30,8 @@ type ArksDisaggregatedRouter struct {
 	// +optional
 	CommandOverride []string `json:"commandOverride"`
 	// +optional
+	RouterArgs []string `json:"routerArgs"`
+	// +optional
 	InstanceSpec ArksInstanceSpec `json:"instanceSpec"`
 }
 
@@ -43,7 +45,7 @@ type ArksDisaggregatedWorkload struct {
 	// +optional
 	WorkerCommandOverride []string `json:"workerCommandOverride"`
 	// +optional
-	RuntimeExtraArgs []string `json:"runtimeExtraArgs"`
+	RuntimeCommonArgs []string `json:"runtimeCommonArgs"`
 	// InstanceSpec
 	// +optional
 	InstanceSpec ArksInstanceSpec `json:"instanceSpec"`

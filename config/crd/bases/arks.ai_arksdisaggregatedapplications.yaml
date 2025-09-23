@@ -4596,7 +4596,7 @@ spec:
                     type: array
                   replicas:
                     type: integer
-                  runtimeExtraArgs:
+                  runtimeCommonArgs:
                     items:
                       type: string
                     type: array
@@ -9178,7 +9178,7 @@ spec:
                     type: array
                   replicas:
                     type: integer
-                  runtimeExtraArgs:
+                  runtimeCommonArgs:
                     items:
                       type: string
                     type: array
@@ -13746,6 +13746,10 @@ spec:
                     type: object
                   replicas:
                     type: integer
+                  routerArgs:
+                    items:
+                      type: string
+                    type: array
                 type: object
               runtime:
                 description: |-
