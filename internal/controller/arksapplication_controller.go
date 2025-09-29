@@ -450,12 +450,38 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 						Labels:      generateLwsLabels(application, arksv1.ArksWorkLoadRoleLeader),
 					},
 					Spec: corev1.PodSpec{
-						ServiceAccountName: application.Spec.InstanceSpec.ServiceAccountName,
-						SchedulerName:      application.Spec.InstanceSpec.SchedulerName,
-						Affinity:           application.Spec.InstanceSpec.Affinity,
-						NodeSelector:       application.Spec.InstanceSpec.NodeSelector,
-						Tolerations:        application.Spec.InstanceSpec.Tolerations,
-						ImagePullSecrets:   application.Spec.RuntimeImagePullSecrets,
+						ServiceAccountName:            application.Spec.InstanceSpec.ServiceAccountName,
+						SchedulerName:                 application.Spec.InstanceSpec.SchedulerName,
+						Affinity:                      application.Spec.InstanceSpec.Affinity,
+						NodeSelector:                  application.Spec.InstanceSpec.NodeSelector,
+						Tolerations:                   application.Spec.InstanceSpec.Tolerations,
+						TerminationGracePeriodSeconds: application.Spec.InstanceSpec.TerminationGracePeriodSeconds,
+						ActiveDeadlineSeconds:         application.Spec.InstanceSpec.ActiveDeadlineSeconds,
+						DNSPolicy:                     application.Spec.InstanceSpec.DNSPolicy,
+						DNSConfig:                     application.Spec.InstanceSpec.DNSConfig,
+						AutomountServiceAccountToken:  application.Spec.InstanceSpec.AutomountServiceAccountToken,
+						NodeName:                      application.Spec.InstanceSpec.NodeName,
+						HostNetwork:                   application.Spec.InstanceSpec.HostNetwork,
+						HostPID:                       application.Spec.InstanceSpec.HostPID,
+						HostIPC:                       application.Spec.InstanceSpec.HostIPC,
+						ShareProcessNamespace:         application.Spec.InstanceSpec.ShareProcessNamespace,
+						SecurityContext:               application.Spec.InstanceSpec.PodSecurityContext,
+						Subdomain:                     application.Spec.InstanceSpec.Subdomain,
+						HostAliases:                   application.Spec.InstanceSpec.HostAliases,
+						PriorityClassName:             application.Spec.InstanceSpec.PriorityClassName,
+						Priority:                      application.Spec.InstanceSpec.Priority,
+						RuntimeClassName:              application.Spec.InstanceSpec.RuntimeClassName,
+						EnableServiceLinks:            application.Spec.InstanceSpec.EnableServiceLinks,
+						PreemptionPolicy:              application.Spec.InstanceSpec.PreemptionPolicy,
+						Overhead:                      application.Spec.InstanceSpec.Overhead,
+						TopologySpreadConstraints:     application.Spec.InstanceSpec.TopologySpreadConstraints,
+						SetHostnameAsFQDN:             application.Spec.InstanceSpec.SetHostnameAsFQDN,
+						OS:                            application.Spec.InstanceSpec.OS,
+						HostUsers:                     application.Spec.InstanceSpec.HostUsers,
+						SchedulingGates:               application.Spec.InstanceSpec.SchedulingGates,
+						ResourceClaims:                application.Spec.InstanceSpec.ResourceClaims,
+						ImagePullSecrets:              application.Spec.RuntimeImagePullSecrets,
+						InitContainers:                application.Spec.InstanceSpec.InitContainers,
 						Containers: []corev1.Container{
 							{
 								Name:         "leader",
@@ -482,12 +508,38 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 						Labels:      generateLwsLabels(application, arksv1.ArksWorkLoadRoleWorker),
 					},
 					Spec: corev1.PodSpec{
-						ServiceAccountName: application.Spec.InstanceSpec.ServiceAccountName,
-						SchedulerName:      application.Spec.InstanceSpec.SchedulerName,
-						Affinity:           application.Spec.InstanceSpec.Affinity,
-						NodeSelector:       application.Spec.InstanceSpec.NodeSelector,
-						Tolerations:        application.Spec.InstanceSpec.Tolerations,
-						ImagePullSecrets:   application.Spec.RuntimeImagePullSecrets,
+						ServiceAccountName:            application.Spec.InstanceSpec.ServiceAccountName,
+						SchedulerName:                 application.Spec.InstanceSpec.SchedulerName,
+						Affinity:                      application.Spec.InstanceSpec.Affinity,
+						NodeSelector:                  application.Spec.InstanceSpec.NodeSelector,
+						Tolerations:                   application.Spec.InstanceSpec.Tolerations,
+						TerminationGracePeriodSeconds: application.Spec.InstanceSpec.TerminationGracePeriodSeconds,
+						ActiveDeadlineSeconds:         application.Spec.InstanceSpec.ActiveDeadlineSeconds,
+						DNSPolicy:                     application.Spec.InstanceSpec.DNSPolicy,
+						DNSConfig:                     application.Spec.InstanceSpec.DNSConfig,
+						AutomountServiceAccountToken:  application.Spec.InstanceSpec.AutomountServiceAccountToken,
+						NodeName:                      application.Spec.InstanceSpec.NodeName,
+						HostNetwork:                   application.Spec.InstanceSpec.HostNetwork,
+						HostPID:                       application.Spec.InstanceSpec.HostPID,
+						HostIPC:                       application.Spec.InstanceSpec.HostIPC,
+						ShareProcessNamespace:         application.Spec.InstanceSpec.ShareProcessNamespace,
+						SecurityContext:               application.Spec.InstanceSpec.PodSecurityContext,
+						Subdomain:                     application.Spec.InstanceSpec.Subdomain,
+						HostAliases:                   application.Spec.InstanceSpec.HostAliases,
+						PriorityClassName:             application.Spec.InstanceSpec.PriorityClassName,
+						Priority:                      application.Spec.InstanceSpec.Priority,
+						RuntimeClassName:              application.Spec.InstanceSpec.RuntimeClassName,
+						EnableServiceLinks:            application.Spec.InstanceSpec.EnableServiceLinks,
+						PreemptionPolicy:              application.Spec.InstanceSpec.PreemptionPolicy,
+						Overhead:                      application.Spec.InstanceSpec.Overhead,
+						TopologySpreadConstraints:     application.Spec.InstanceSpec.TopologySpreadConstraints,
+						SetHostnameAsFQDN:             application.Spec.InstanceSpec.SetHostnameAsFQDN,
+						OS:                            application.Spec.InstanceSpec.OS,
+						HostUsers:                     application.Spec.InstanceSpec.HostUsers,
+						SchedulingGates:               application.Spec.InstanceSpec.SchedulingGates,
+						ResourceClaims:                application.Spec.InstanceSpec.ResourceClaims,
+						ImagePullSecrets:              application.Spec.RuntimeImagePullSecrets,
+						InitContainers:                application.Spec.InstanceSpec.InitContainers,
 						Containers: []corev1.Container{
 							{
 								Name:         "worker",
@@ -565,8 +617,8 @@ func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tensor-parallel-size %d", args, application.Spec.TensorParallelSize)
 		}
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		for i := range application.Spec.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, application.Spec.RuntimeCommonArgs[i])
 		}
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeSGLang):
@@ -576,8 +628,8 @@ func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
 		}
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		for i := range application.Spec.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, application.Spec.RuntimeCommonArgs[i])
 		}
 		if !strings.Contains(args, "enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)
@@ -585,8 +637,8 @@ func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeDynamo):
 		args := "dynamo run in=http out=dyn://$(LWS_LEADER_ADDRESS)"
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		for i := range application.Spec.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, application.Spec.RuntimeCommonArgs[i])
 		}
 		return []string{"/bin/bash", "-c", args}, nil
 	default:
@@ -607,8 +659,8 @@ func generateWorkerCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
 		}
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		for i := range application.Spec.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, application.Spec.RuntimeCommonArgs[i])
 		}
 		if !strings.Contains(args, "enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)
@@ -617,8 +669,8 @@ func generateWorkerCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 	case string(arksv1.ArksRuntimeDynamo):
 		args := fmt.Sprintf("dynamo run in=dyn://$(LWS_LEADER_ADDRESS) out=vllm %s", generateModelPath(model))
 		args = fmt.Sprintf("%s --model-name %s", args, getServedModelName(application))
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
+		for i := range application.Spec.RuntimeCommonArgs {
+			args = fmt.Sprintf("%s %s", args, application.Spec.RuntimeCommonArgs[i])
 		}
 		return []string{"/bin/bash", "-c", args}, nil
 	default:

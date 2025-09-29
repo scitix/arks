@@ -110,8 +110,8 @@ func (in *ArksApplicationSpec) DeepCopyInto(out *ArksApplicationSpec) {
 		copy(*out, *in)
 	}
 	out.Model = in.Model
-	if in.ExtraOptions != nil {
-		in, out := &in.ExtraOptions, &out.ExtraOptions
+	if in.RuntimeCommonArgs != nil {
+		in, out := &in.RuntimeCommonArgs, &out.RuntimeCommonArgs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
