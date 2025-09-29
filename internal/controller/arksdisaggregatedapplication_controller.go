@@ -604,6 +604,22 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx co
 		replicas = *application.Spec.Router.Replicas
 	}
 
+	readinessProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health",
+				Port: intstr.FromInt(8080),
+			},
+		},
+		InitialDelaySeconds: 30,
+		PeriodSeconds:       10,
+		TimeoutSeconds:      3,
+		FailureThreshold:    120,
+	}
+	if application.Spec.Router.InstanceSpec.ReadinessProbe != nil {
+		readinessProbe = application.Spec.Router.InstanceSpec.ReadinessProbe
+	}
+
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: application.Namespace,
@@ -665,7 +681,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx co
 							Command:         commands,
 							Resources:       application.Spec.Router.InstanceSpec.Resources,
 							SecurityContext: application.Spec.Router.InstanceSpec.SecurityContext,
-							ReadinessProbe:  application.Spec.Router.InstanceSpec.ReadinessProbe,
+							ReadinessProbe:  readinessProbe,
 							LivenessProbe:   application.Spec.Router.InstanceSpec.LivenessProbe,
 							StartupProbe:    application.Spec.Router.InstanceSpec.StartupProbe,
 							Env:             envs,

@@ -283,7 +283,7 @@ type ArksApplicationSpec struct {
 	TensorParallelSize int `json:"tensorParallelSize"`
 
 	// +optional
-	ExtraOptions []string `json:"extraOptions"`
+	RuntimeCommonArgs []string `json:"runtimeCommonArgs"`
 
 	InstanceSpec ArksInstanceSpec `json:"instanceSpec"`
 }

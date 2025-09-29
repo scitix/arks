@@ -69,10 +69,6 @@ spec:
           spec:
             description: ArksApplicationSpec defines the desired state of ArksApplication.
             properties:
-              extraOptions:
-                items:
-                  type: string
-                type: array
               instanceSpec:
                 description: |-
                   EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -6051,6 +6047,10 @@ spec:
                   Now support: vllm, sglang. Default vLLM.
                   We will support Dynamo in future.
                 type: string
+              runtimeCommonArgs:
+                items:
+                  type: string
+                type: array
               runtimeImage:
                 description: |-
                   RuntimeImage defines the runtime container image URL.
