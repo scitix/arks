@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,7 +118,6 @@ func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&arksv1.ArksApplication{}).
 		Named("arksapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
-		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
 
@@ -139,25 +137,14 @@ func (r *ArksApplicationReconciler) remove(ctx context.Context, application *ark
 	}
 	klog.Infof("application %s/%s: remove application service (%s) successfully", application.Namespace, application.Name, serviceName)
 
-	if application.Spec.Size > 1 {
-		klog.Infof("application %s/%s: start to remove application underlying LWS", application.Namespace, application.Name)
-		if err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				klog.Errorf("application %s/%s: failed to delete underlying LWS: %q", application.Namespace, serviceName, err)
-				return ctrl.Result{}, fmt.Errorf("failed to delete underlying LWS: %q", err)
-			}
+	klog.Infof("application %s/%s: start to remove application underlying LWS", application.Namespace, application.Name)
+	if err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			klog.Errorf("application %s/%s: failed to delete underlying LWS: %q", application.Namespace, serviceName, err)
+			return ctrl.Result{}, fmt.Errorf("failed to delete underlying LWS: %q", err)
 		}
-		klog.Infof("application %s/%s: remove application underlying LWS successfully", application.Namespace, application.Name)
-	} else {
-		klog.Infof("application %s/%s: start to remove application underlying deployment", application.Namespace, application.Name)
-		if err := r.KubeClient.AppsV1().Deployments(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				klog.Errorf("application %s/%s: failed to delete underlying deployment: %q", application.Namespace, serviceName, err)
-				return ctrl.Result{}, fmt.Errorf("failed to delete underlying deployment: %q", err)
-			}
-		}
-		klog.Infof("application %s/%s: remove application underlying deployment successfully", application.Namespace, application.Name)
 	}
+	klog.Infof("application %s/%s: remove application underlying LWS successfully", application.Namespace, application.Name)
 
 	// remove finalizer
 	removeFinalizer(application, arksApplicationControllerFinalizer)
@@ -277,53 +264,27 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 	// start model service
 	if !checkApplicationCondition(application, arksv1.ArksApplicationReady) {
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseCreating)
-		if application.Spec.Size > 1 {
-			if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
-				if apierrors.IsNotFound(err) {
-					lws, err := generateLws(application, model)
-					if err != nil {
-						application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-						updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "UnderlayGenerateFailed", fmt.Sprintf("Failed to generate underlay: %q", err))
-						return ctrl.Result{}, fmt.Errorf("failed to generate underlying LWS: %q", err)
-					}
-					ctrl.SetControllerReference(application, lws, r.Scheme)
-
-					if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Create(ctx, lws, metav1.CreateOptions{}); err != nil {
-						if !apierrors.IsAlreadyExists(err) {
-							updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlayCreatedFailed", fmt.Sprintf("Failed to create underlay: %q", err))
-							klog.Errorf("application %s/%s: failed to create underlying LWS: %q", application.Namespace, application.Name, err)
-							return ctrl.Result{}, fmt.Errorf("failed to create underlying LWS: %q", err)
-						}
-					}
-					klog.Infof("application %s/%s: create underlying LWS successfully", application.Namespace, application.Name)
-				} else {
-					klog.Errorf("application %s/%s: failed to check the underlying LWS: %q", application.Namespace, application.Name, err)
-					return ctrl.Result{}, fmt.Errorf("failed to check the underlying LWS: %q", err)
+		if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
+			if apierrors.IsNotFound(err) {
+				lws, err := generateLws(application, model)
+				if err != nil {
+					application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
+					updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "UnderlayGenerateFailed", fmt.Sprintf("Failed to generate underlay: %q", err))
+					return ctrl.Result{}, fmt.Errorf("failed to generate underlying LWS: %q", err)
 				}
-			}
-		} else {
-			if _, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
-				if apierrors.IsNotFound(err) {
-					deploy, err := generateDeploy(application, model)
-					if err != nil {
-						application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-						updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "UnderlayGenerateFailed", fmt.Sprintf("Failed to generate underlay: %q", err))
-						return ctrl.Result{}, fmt.Errorf("failed to generate underlying LWS: %q", err)
-					}
-					ctrl.SetControllerReference(application, deploy, r.Scheme)
+				ctrl.SetControllerReference(application, lws, r.Scheme)
 
-					if _, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Create(ctx, deploy, metav1.CreateOptions{}); err != nil {
-						if !apierrors.IsAlreadyExists(err) {
-							updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlayCreatedFailed", fmt.Sprintf("Failed to create underlay: %q", err))
-							klog.Errorf("application %s/%s: failed to create underlying deployment: %q", application.Namespace, application.Name, err)
-							return ctrl.Result{}, fmt.Errorf("failed to create underlying deployment: %q", err)
-						}
+				if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Create(ctx, lws, metav1.CreateOptions{}); err != nil {
+					if !apierrors.IsAlreadyExists(err) {
+						updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlayCreatedFailed", fmt.Sprintf("Failed to create underlay: %q", err))
+						klog.Errorf("application %s/%s: failed to create underlying LWS: %q", application.Namespace, application.Name, err)
+						return ctrl.Result{}, fmt.Errorf("failed to create underlying LWS: %q", err)
 					}
-					klog.Infof("application %s/%s: create underlying deployment successfully", application.Namespace, application.Name)
-				} else {
-					klog.Errorf("application %s/%s: failed to check the underlaying deployment: %q", application.Namespace, application.Name, err)
-					return ctrl.Result{}, fmt.Errorf("failed to check the underlying deployment: %q", err)
 				}
+				klog.Infof("application %s/%s: create underlying LWS successfully", application.Namespace, application.Name)
+			} else {
+				klog.Errorf("application %s/%s: failed to check the underlying LWS: %q", application.Namespace, application.Name, err)
+				return ctrl.Result{}, fmt.Errorf("failed to check the underlying LWS: %q", err)
 			}
 		}
 
@@ -375,148 +336,22 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 	}
 
 	// sync status
-	if application.Spec.Size > 1 {
-		if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				klog.Errorf("application %s/%s: failed to query the underlying LWS status: %q", application.Namespace, application.Name, err)
-				return ctrl.Result{}, fmt.Errorf("failed to query the underlying LWS status: %q", err)
-			} else {
-				application.Status.Phase = string(arksv1.ArksApplicationPhaseRunning)
-				updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlyingNotExit", "The underlying LWS doesn't exist")
-				klog.Errorf("application %s/%s: the underlying LWS doesn't exist", application.Namespace, application.Name)
-			}
+	if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			klog.Errorf("application %s/%s: failed to query the underlying LWS status: %q", application.Namespace, application.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to query the underlying LWS status: %q", err)
 		} else {
-			application.Status.Replicas = lws.Status.Replicas
-			application.Status.ReadyReplicas = lws.Status.ReadyReplicas
-			application.Status.UpdatedReplicas = lws.Status.UpdatedReplicas
+			application.Status.Phase = string(arksv1.ArksApplicationPhaseRunning)
+			updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlyingNotExit", "The underlying LWS doesn't exist")
+			klog.Errorf("application %s/%s: the underlying LWS doesn't exist", application.Namespace, application.Name)
 		}
 	} else {
-		if deployment, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				klog.Errorf("application %s/%s: failed to query the underlying deployment status: %q", application.Namespace, application.Name, err)
-				return ctrl.Result{}, fmt.Errorf("failed to query the underlying deployment status: %q", err)
-			} else {
-				application.Status.Phase = string(arksv1.ArksApplicationPhaseRunning)
-				updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlyingNotExit", "The underlying deployment doesn't exist")
-				klog.Errorf("application %s/%s: the underlying deployment doesn't exist", application.Namespace, application.Name)
-			}
-		} else {
-			application.Status.Replicas = deployment.Status.Replicas
-			application.Status.ReadyReplicas = deployment.Status.ReadyReplicas
-			application.Status.UpdatedReplicas = deployment.Status.UpdatedReplicas
-		}
+		application.Status.Replicas = lws.Status.Replicas
+		application.Status.ReadyReplicas = lws.Status.ReadyReplicas
+		application.Status.UpdatedReplicas = lws.Status.UpdatedReplicas
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func generateDeploy(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*appsv1.Deployment, error) {
-	image, err := getApplicationRuntimeImage(application)
-	if err != nil {
-		return nil, err
-	}
-
-	command, err := generateDeploymentCommand(application, model)
-	if err != nil {
-		return nil, err
-	}
-
-	replicas := application.Spec.Replicas
-	if replicas < 0 {
-		replicas = 0
-	}
-
-	volumes := []corev1.Volume{
-		{
-			Name: arksApplicationModelVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: model.Spec.Storage.PVC.Name,
-				},
-			},
-		},
-	}
-	volumes = append(volumes, application.Spec.InstanceSpec.Volumes...)
-
-	volumeMounts := []corev1.VolumeMount{
-		{
-			Name:      arksApplicationModelVolumeName,
-			MountPath: arksApplicationModelVolumeMountPath,
-			SubPath:   arksApplicationModelVolumeSubPath,
-			ReadOnly:  true,
-		},
-	}
-	volumeMounts = append(volumeMounts, application.Spec.InstanceSpec.VolumeMounts...)
-
-	envs := []corev1.EnvVar{}
-	envs = append(envs, application.Spec.InstanceSpec.Env...)
-
-	readinessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt32(8080),
-			},
-		},
-		InitialDelaySeconds: 15,
-		PeriodSeconds:       10,
-	}
-	if application.Spec.InstanceSpec.ReadinessProbe != nil {
-		readinessProbe = application.Spec.InstanceSpec.ReadinessProbe
-	}
-
-	livenessProbe := application.Spec.InstanceSpec.LivenessProbe
-
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: application.Namespace,
-			Name:      application.Name,
-			Labels: map[string]string{
-				arksv1.ArksControllerKeyApplication: application.Name,
-			},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(replicas)),
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					arksv1.ArksControllerKeyApplication: application.Name,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: application.Spec.InstanceSpec.Annotations,
-					Labels:      generateDeploymentLabels(application),
-				},
-				Spec: corev1.PodSpec{
-					ServiceAccountName: application.Spec.InstanceSpec.ServiceAccountName,
-					SchedulerName:      application.Spec.InstanceSpec.SchedulerName,
-					Affinity:           application.Spec.InstanceSpec.Affinity,
-					NodeSelector:       application.Spec.InstanceSpec.NodeSelector,
-					Tolerations:        application.Spec.InstanceSpec.Tolerations,
-					ImagePullSecrets:   application.Spec.RuntimeImagePullSecrets,
-					Containers: []corev1.Container{
-						{
-							Name:         "worker",
-							Image:        image,
-							Command:      command,
-							Resources:    application.Spec.InstanceSpec.Resources,
-							VolumeMounts: volumeMounts,
-							Env:          envs,
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 8080,
-								},
-							},
-							ReadinessProbe: readinessProbe,
-							LivenessProbe:  livenessProbe,
-						},
-					},
-					Volumes: volumes,
-				},
-			},
-		},
-	}
-
-	return deploy, nil
 }
 
 func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*lwsapi.LeaderWorkerSet, error) {
@@ -677,17 +512,6 @@ func generateApplicationServiceName(application *arksv1.ArksApplication) string 
 	return fmt.Sprintf("arks-application-%s", application.Name)
 }
 
-func generateDeploymentLabels(application *arksv1.ArksApplication) map[string]string {
-	podLabels := map[string]string{}
-	for key, value := range application.Spec.InstanceSpec.Labels {
-		podLabels[key] = value
-	}
-	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
-	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
-
-	return podLabels
-}
-
 func generateLwsLabels(application *arksv1.ArksApplication, role string) map[string]string {
 	podLabels := map[string]string{}
 	for key, value := range application.Spec.InstanceSpec.Labels {
@@ -729,39 +553,6 @@ func getApplicationRuntimeImage(application *arksv1.ArksApplication) (string, er
 	default:
 		// never reach here
 		return "", fmt.Errorf("runtime not support")
-	}
-}
-
-func generateDeploymentCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel) ([]string, error) {
-	switch application.Spec.Runtime {
-	case string(arksv1.ArksRuntimeVLLM):
-		args := "python3 -m vllm.entrypoints.openai.api_server --port 8080"
-		args = fmt.Sprintf("%s --model %s", args, generateModelPath(model))
-		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
-		if application.Spec.TensorParallelSize > 0 {
-			args = fmt.Sprintf("%s --tensor-parallel-size %d", args, application.Spec.TensorParallelSize)
-		}
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
-		}
-		return []string{"/bin/bash", "-c", args}, nil
-	case string(arksv1.ArksRuntimeSGLang):
-		args := "python3 -m sglang.launch_server --host 0.0.0.0 --port 8080"
-		args = fmt.Sprintf("%s --model-path /models/%s/%s", args, application.Namespace, application.Spec.Model.Name)
-		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
-		if application.Spec.TensorParallelSize > 0 {
-			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)
-		}
-		for i := range application.Spec.ExtraOptions {
-			args = fmt.Sprintf("%s %s", args, application.Spec.ExtraOptions[i])
-		}
-		if !strings.Contains(args, "enable-metrics") {
-			args = fmt.Sprintf("%s --enable-metrics", args)
-		}
-		return []string{"/bin/bash", "-c", args}, nil
-	default:
-		// never reach here
-		return nil, fmt.Errorf("runtime not support")
 	}
 }
 
