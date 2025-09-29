@@ -808,12 +808,15 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 
 	readinessProbe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt32(8080),
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health",
+				Port: intstr.FromInt(8080),
 			},
 		},
 		InitialDelaySeconds: 30,
 		PeriodSeconds:       10,
+		TimeoutSeconds:      3,
+		FailureThreshold:    120,
 	}
 	if workload.InstanceSpec.ReadinessProbe != nil {
 		readinessProbe = workload.InstanceSpec.ReadinessProbe
