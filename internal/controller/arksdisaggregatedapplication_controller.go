@@ -589,17 +589,14 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx co
 		return nil, err
 	}
 
+	envs := application.Spec.Router.InstanceSpec.Env
 	commands := []string{"/bin/bash", "-c", command}
-	if application.Spec.Router.CommandOverride != nil {
+	if len(application.Spec.Router.CommandOverride) > 0 {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "ARKS_ROUTER_COMMAND",
+			Value: command,
+		})
 		commands = application.Spec.Router.CommandOverride
-		envs := application.Spec.Router.InstanceSpec.Env
-		if len(application.Spec.Router.CommandOverride) > 0 {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "ARKS_ROUTER_COMMAND",
-				Value: command,
-			})
-			commands = application.Spec.Router.CommandOverride
-		}
 	}
 
 	replicas := int32(1)
@@ -671,6 +668,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx co
 							ReadinessProbe:  application.Spec.Router.InstanceSpec.ReadinessProbe,
 							LivenessProbe:   application.Spec.Router.InstanceSpec.LivenessProbe,
 							StartupProbe:    application.Spec.Router.InstanceSpec.StartupProbe,
+							Env:             envs,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: port,
@@ -789,17 +787,22 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 		})
 	}
 
+	var leaderEnvs []corev1.EnvVar
+	leaderEnvs = append(leaderEnvs, envs...)
 	leaderCommands := []string{"/bin/bash", "-c", leaderCommand}
 	if len(workload.LeaderCommandOverride) > 0 {
-		envs = append(envs, corev1.EnvVar{
+		leaderEnvs = append(leaderEnvs, corev1.EnvVar{
 			Name:  "ARKS_LEADER_COMMAND",
 			Value: leaderCommand,
 		})
 		leaderCommands = workload.LeaderCommandOverride
 	}
+
+	var workerEnvs []corev1.EnvVar
+	workerEnvs = append(workerEnvs, envs...)
 	workerCommands := []string{"/bin/bash", "-c", workerCommand}
 	if len(workload.WorkerCommandOverride) > 0 {
-		envs = append(envs, corev1.EnvVar{
+		workerEnvs = append(workerEnvs, corev1.EnvVar{
 			Name:  "ARKS_WORKER_COMMAND",
 			Value: workerCommand,
 		})
@@ -881,7 +884,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 								Command:      leaderCommands,
 								Resources:    workload.InstanceSpec.Resources,
 								VolumeMounts: volumeMounts,
-								Env:          envs,
+								Env:          leaderEnvs,
 								Ports: []corev1.ContainerPort{
 									{
 										ContainerPort: 8080,
@@ -941,7 +944,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 								Command:         workerCommands,
 								Resources:       workload.InstanceSpec.Resources,
 								VolumeMounts:    volumeMounts,
-								Env:             envs,
+								Env:             workerEnvs,
 								SecurityContext: workload.InstanceSpec.SecurityContext,
 							},
 						},
