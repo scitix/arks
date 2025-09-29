@@ -26,6 +26,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +55,9 @@ type ArksDisaggregatedApplicationReconciler struct {
 // +kubebuilder:rbac:groups=arks.ai,resources=arksdisaggregatedapplications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=arks.ai,resources=arksdisaggregatedapplications/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arks.ai,resources=arksdisaggregatedapplications/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="rbac.authorization.k8s.io",resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -310,7 +314,7 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 		routerName := fmt.Sprintf("%s-router", application.Name)
 		if _, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, routerName, metav1.GetOptions{}); err != nil {
 			if apierrors.IsNotFound(err) {
-				deploy, err := r.generateRouterDeployment(application)
+				deploy, err := r.generateRouterDeployment(ctx, application)
 				if err != nil {
 					application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
 					r.updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "UnderlayGenerateFailed", fmt.Sprintf("Failed to generate router underlay: %q", err))
@@ -374,6 +378,29 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 		application.Status.Prefill.Replicas = lws.Status.Replicas
 		application.Status.Prefill.ReadyReplicas = lws.Status.ReadyReplicas
 		application.Status.Prefill.UpdatedReplicas = lws.Status.UpdatedReplicas
+
+		prefillReplicas := int32(1)
+		if application.Spec.Prefill.Replicas != nil && *application.Spec.Prefill.Replicas >= 0 {
+			prefillReplicas = *application.Spec.Prefill.Replicas
+		}
+
+		needUpdate := false
+		if prefillReplicas != *lws.Spec.Replicas {
+			klog.Infof("application %s/%s: prefill replicas changed %d", application.Namespace, application.Name, prefillReplicas)
+			lws.Spec.Replicas = ptr.To(prefillReplicas)
+			needUpdate = true
+		}
+
+		// TODO support update decode command (and runtime args)
+
+		// TODO support update podSpec
+
+		if needUpdate {
+			if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Update(ctx, lws, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("application %s/%s: failed to update prefill lws: %q", application.Namespace, application.Name, err)
+			}
+			klog.Infof("application %s/%s: update prefill lws successfully", application.Namespace, application.Name)
+		}
 	}
 
 	decodeName := fmt.Sprintf("%s-decode", application.Name)
@@ -387,9 +414,32 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 			klog.Errorf("application %s/%s: the underlying decode LWS doesn't exist", application.Namespace, application.Name)
 		}
 	} else {
-		application.Status.Prefill.Replicas = lws.Status.Replicas
-		application.Status.Prefill.ReadyReplicas = lws.Status.ReadyReplicas
-		application.Status.Prefill.UpdatedReplicas = lws.Status.UpdatedReplicas
+		application.Status.Decode.Replicas = lws.Status.Replicas
+		application.Status.Decode.ReadyReplicas = lws.Status.ReadyReplicas
+		application.Status.Decode.UpdatedReplicas = lws.Status.UpdatedReplicas
+
+		decodeReplicas := int32(1)
+		if application.Spec.Decode.Replicas != nil && *application.Spec.Decode.Replicas >= 0 {
+			decodeReplicas = *application.Spec.Decode.Replicas
+		}
+
+		needUpdate := false
+		if decodeReplicas != *lws.Spec.Replicas {
+			klog.Infof("application %s/%s: decode replicas changed %d", application.Namespace, application.Name, decodeReplicas)
+			lws.Spec.Replicas = ptr.To(decodeReplicas)
+			needUpdate = true
+		}
+
+		// TODO support update decode command (and runtime args)
+
+		// TODO support update podSpec
+
+		if needUpdate {
+			if _, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Update(ctx, lws, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("application %s/%s: failed to update prefill lws: %q", application.Namespace, application.Name, err)
+			}
+			klog.Infof("application %s/%s: update prefill lws successfully", application.Namespace, application.Name)
+		}
 	}
 
 	routerName := fmt.Sprintf("%s-router", application.Name)
@@ -406,6 +456,27 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 		application.Status.Router.Replicas = deployment.Status.Replicas
 		application.Status.Router.ReadyReplicas = deployment.Status.ReadyReplicas
 		application.Status.Router.UpdatedReplicas = deployment.Status.UpdatedReplicas
+
+		routerReplicas := int32(1)
+		if application.Spec.Router.Replicas != nil && *application.Spec.Router.Replicas > 0 {
+			routerReplicas = *application.Spec.Router.Replicas
+		}
+
+		needUpdate := false
+		if deployment.Spec.Replicas != nil && *deployment.Spec.Replicas != routerReplicas {
+			deployment.Spec.Replicas = ptr.To(routerReplicas)
+			needUpdate = true
+		}
+
+		// TODO support update podSpec
+
+		if needUpdate {
+			if _, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Update(ctx, deployment, metav1.UpdateOptions{}); err != nil {
+				klog.Errorf("application %s/%s: failed to update router deployment: %q", application.Namespace, application.Name, err)
+				return ctrl.Result{}, fmt.Errorf("failed to update router deployment: %q", err)
+			}
+			klog.Infof("update router deployment successfully")
+		}
 	}
 
 	return ctrl.Result{}, nil
@@ -416,33 +487,124 @@ func (r *ArksDisaggregatedApplicationReconciler) SetupWithManager(mgr ctrl.Manag
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&arksv1.ArksDisaggregatedApplication{}).
 		Named("arksdisaggregatedapplication").
+		Owns(&lwsapi.LeaderWorkerSet{}).
+		Owns(&appsv1.Deployment{}).
 		Complete(r)
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(application *arksv1.ArksDisaggregatedApplication) (*appsv1.Deployment, error) {
-	image, err := r.getApplicationRuntimeImage(application)
+func (r *ArksDisaggregatedApplicationReconciler) applyRouterRBAC(ctx context.Context, application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	if _, err := r.KubeClient.RbacV1().RoleBindings(application.Namespace).Get(ctx, "sglang-router", metav1.GetOptions{}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("failed to check sglang router role binding: %q", err)
+		}
+		role := rbacv1.Role{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: application.Namespace,
+				Name:      "sglang-router",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					Verbs:     []string{"get", "list", "watch"},
+					Resources: []string{"pods"},
+					APIGroups: []string{""},
+				},
+			},
+		}
+		if _, err := r.KubeClient.RbacV1().Roles(application.Namespace).Create(ctx, &role, metav1.CreateOptions{}); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				return "", fmt.Errorf("failed to create sglang router role: %q", err)
+			}
+		}
+		klog.Infof("create sglang router role successfully")
+
+		serviceAccount := corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: application.Namespace,
+				Name:      "sglang-router",
+			},
+		}
+		if _, err := r.KubeClient.CoreV1().ServiceAccounts(application.Namespace).Create(ctx, &serviceAccount, metav1.CreateOptions{}); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				return "", fmt.Errorf("failed to create sglang router service account: %q", err)
+			}
+		}
+		klog.Infof("create sglang router service account successfully")
+
+		roleBinding := rbacv1.RoleBinding{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: application.Namespace,
+				Name:      "sglang-router",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      "ServiceAccount",
+					Name:      "sglang-router",
+					Namespace: application.Namespace,
+				},
+			},
+			RoleRef: rbacv1.RoleRef{
+				Kind:     "Role",
+				Name:     "sglang-router",
+				APIGroup: "rbac.authorization.k8s.io",
+			},
+		}
+		if _, err := r.KubeClient.RbacV1().RoleBindings(application.Namespace).Create(ctx, &roleBinding, metav1.CreateOptions{}); err != nil {
+			if !apierrors.IsAlreadyExists(err) {
+				return "", fmt.Errorf("failed to create sglang router role binding: %q", err)
+			}
+		}
+		klog.Infof("create sglang router role binding successfully")
+
+		return "sglang-router", nil
+	}
+	return "sglang-router", nil
+}
+
+func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx context.Context, application *arksv1.ArksDisaggregatedApplication) (*appsv1.Deployment, error) {
+	serviceAccountName := application.Spec.Router.InstanceSpec.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccount, err := r.applyRouterRBAC(ctx, application)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply sglang router rbac: %q", err)
+		}
+		serviceAccountName = serviceAccount
+	}
+	port := application.Spec.Router.Port
+	if port == 0 {
+		port = 8080
+	}
+
+	metricPort := application.Spec.Router.MetricPort
+	if metricPort == 0 {
+		metricPort = 9090
+	}
+
+	image, err := r.getApplicationRouterImage(application)
 	if err != nil {
 		return nil, err
 	}
 
-	command, err := r.generateDisaggregationRouterCommand(application)
+	command, err := r.generateDisaggregationRouterCommand(application, port, metricPort)
 	if err != nil {
 		return nil, err
 	}
 
 	commands := []string{"/bin/bash", "-c", command}
-	envs := application.Spec.Router.InstanceSpec.Env
-	if len(application.Spec.Router.CommandOverride) > 0 {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "ARKS_ROUTER_COMMAND",
-			Value: command,
-		})
+	if application.Spec.Router.CommandOverride != nil {
 		commands = application.Spec.Router.CommandOverride
+		envs := application.Spec.Router.InstanceSpec.Env
+		if len(application.Spec.Router.CommandOverride) > 0 {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "ARKS_ROUTER_COMMAND",
+				Value: command,
+			})
+			commands = application.Spec.Router.CommandOverride
+		}
 	}
 
-	replicas := application.Spec.Router.Replicas
-	if replicas < 0 {
-		replicas = 0
+	replicas := int32(1)
+	if application.Spec.Router.Replicas != nil && *application.Spec.Router.Replicas >= 0 {
+		replicas = *application.Spec.Router.Replicas
 	}
 
 	deploy := &appsv1.Deployment{
@@ -454,7 +616,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(applic
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: ptr.To(int32(replicas)),
+			Replicas: ptr.To(replicas),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					arksv1.ArksControllerKeyApplication: application.Name,
@@ -492,15 +654,16 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(applic
 					SchedulingGates:               application.Spec.Router.InstanceSpec.SchedulingGates,
 					ResourceClaims:                application.Spec.Router.InstanceSpec.ResourceClaims,
 
-					ServiceAccountName: application.Spec.Router.InstanceSpec.ServiceAccountName,
+					ServiceAccountName: serviceAccountName,
 					SchedulerName:      application.Spec.Router.InstanceSpec.SchedulerName,
 					Affinity:           application.Spec.Router.InstanceSpec.Affinity,
 					NodeSelector:       application.Spec.Router.InstanceSpec.NodeSelector,
 					Tolerations:        application.Spec.Router.InstanceSpec.Tolerations,
 					ImagePullSecrets:   application.Spec.RuntimeImagePullSecrets,
+					InitContainers:     application.Spec.Router.InstanceSpec.InitContainers,
 					Containers: []corev1.Container{
 						{
-							Name:            "router",
+							Name:            "main",
 							Image:           image,
 							Command:         commands,
 							Resources:       application.Spec.Router.InstanceSpec.Resources,
@@ -510,7 +673,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(applic
 							StartupProbe:    application.Spec.Router.InstanceSpec.StartupProbe,
 							Ports: []corev1.ContainerPort{
 								{
-									ContainerPort: 8080,
+									ContainerPort: port,
 								},
 							},
 							VolumeMounts: application.Spec.Router.InstanceSpec.VolumeMounts,
@@ -525,6 +688,11 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(applic
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateRouterSvc(application *arksv1.ArksDisaggregatedApplication) (*corev1.Service, error) {
+	port := application.Spec.Router.Port
+	if port == 0 {
+		port = 8080
+	}
+
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: application.Namespace,
@@ -543,7 +711,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterSvc(application *
 			Ports: []corev1.ServicePort{
 				{
 					Name: "http",
-					Port: 8080,
+					Port: port,
 				},
 			},
 		},
@@ -577,8 +745,8 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 	}
 
 	lwsReplicas := workload.Replicas
-	if lwsReplicas < 0 {
-		lwsReplicas = 0
+	if lwsReplicas == nil || *lwsReplicas < 0 {
+		*lwsReplicas = 1
 	}
 	lwsSize := workload.Size
 	if lwsSize < 1 {
@@ -660,7 +828,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 			},
 		},
 		Spec: lwsapi.LeaderWorkerSetSpec{
-			Replicas:      ptr.To(int32(lwsReplicas)),
+			Replicas:      ptr.To(*lwsReplicas),
 			StartupPolicy: lwsapi.LeaderCreatedStartupPolicy,
 			LeaderWorkerTemplate: lwsapi.LeaderWorkerTemplate{
 				RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
@@ -702,9 +870,10 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 						NodeSelector:                  workload.InstanceSpec.NodeSelector,
 						Tolerations:                   workload.InstanceSpec.Tolerations,
 						ImagePullSecrets:              application.Spec.RuntimeImagePullSecrets,
+						InitContainers:                workload.InstanceSpec.InitContainers,
 						Containers: []corev1.Container{
 							{
-								Name:         "leader",
+								Name:         "main",
 								Image:        image,
 								Command:      leaderCommands,
 								Resources:    workload.InstanceSpec.Resources,
@@ -761,9 +930,10 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 						NodeSelector:                  workload.InstanceSpec.NodeSelector,
 						Tolerations:                   workload.InstanceSpec.Tolerations,
 						ImagePullSecrets:              application.Spec.RuntimeImagePullSecrets,
+						InitContainers:                workload.InstanceSpec.InitContainers,
 						Containers: []corev1.Container{
 							{
-								Name:            "worker",
+								Name:            "main",
 								Image:           image,
 								Command:         workerCommands,
 								Resources:       workload.InstanceSpec.Resources,
@@ -782,14 +952,18 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 	return lws, nil
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(application *arksv1.ArksDisaggregatedApplication) (string, error) {
-	if application.Spec.RuntimeImage != "" {
-		return application.Spec.RuntimeImage, nil
+func (r *ArksDisaggregatedApplicationReconciler) getApplicationRouterImage(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	if application.Spec.RouterImage != "" {
+		return application.Spec.RouterImage, nil
 	}
 
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
-		sglangImage := os.Getenv("ARKS_RUNTIME_DEFAULT_SGLANG_IMAGE")
+		sglangImage := os.Getenv("ARKS_DEFAULT_SGLANG_ROUTER_IMAGE")
+		if sglangImage != "" {
+			return sglangImage, nil
+		}
+		sglangImage = os.Getenv("ARKS_DEFAULT_SGLANG_IMAGE")
 		if sglangImage != "" {
 			return sglangImage, nil
 		}
@@ -799,78 +973,83 @@ func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(appl
 	}
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) generateRouterLabels(application *arksv1.ArksDisaggregatedApplication) map[string]string {
+func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+	if application.Spec.RuntimeImage != "" {
+		return application.Spec.RuntimeImage, nil
+	}
+
+	switch application.Spec.Runtime {
+	case string(arksv1.ArksRuntimeSGLang):
+		sglangImage := os.Getenv("ARKS_DEFAULT_SGLANG_IMAGE")
+		if sglangImage != "" {
+			return sglangImage, nil
+		}
+		return "lmsysorg/sglang:v0.5.1.post1-cu126", nil
+	default:
+		return "", errors.New("unsupported runtime")
+	}
+}
+
+func (r *ArksDisaggregatedApplicationReconciler) generateWorkloadLabels(workload arksv1.ArksDisaggregatedWorkload, disaggregatedRole string) map[string]string {
 	podLabels := map[string]string{}
-	for key, value := range application.Spec.Router.InstanceSpec.Labels {
+	for key, value := range workload.InstanceSpec.Labels {
 		podLabels[key] = value
 	}
+	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = disaggregatedRole
+	return podLabels
+}
+
+func (r *ArksDisaggregatedApplicationReconciler) generateRouterLabels(application *arksv1.ArksDisaggregatedApplication) map[string]string {
+	podLabels := r.generateWorkloadLabels(application.Spec.Decode, "router")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
-	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = "router"
 
 	return podLabels
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generatePrefillWorkloadLwsLabels(application *arksv1.ArksDisaggregatedApplication, role string) map[string]string {
-	podLabels := map[string]string{}
-	for key, value := range application.Spec.Prefill.InstanceSpec.Labels {
-		podLabels[key] = value
-	}
+	podLabels := r.generateWorkloadLabels(application.Spec.Prefill, "prefill")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
 	podLabels[arksv1.ArksControllerKeyWorkLoadRole] = role
-	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = "prefill"
 
 	return podLabels
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateDecodeWorkloadLwsLabels(application *arksv1.ArksDisaggregatedApplication, role string) map[string]string {
-	podLabels := map[string]string{}
-	for key, value := range application.Spec.Decode.InstanceSpec.Labels {
-		podLabels[key] = value
-	}
+	podLabels := r.generateWorkloadLabels(application.Spec.Decode, "decode")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
 	podLabels[arksv1.ArksControllerKeyWorkLoadRole] = role
-	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = "prefill"
 
 	return podLabels
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication) (string, error) {
+func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication, port, metricPort int32) (string, error) {
 	var args string
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
-		if application.Annotations[arksv1.ArksControllerKeySglangRouter] == "mini_lb" {
-			args = "python3 -m sglang.srt.disaggregation.mini_lb --host 0.0.0.0 --port 8080"
-			args = fmt.Sprintf("%s --prefill", args)
-			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
-				args = fmt.Sprintf("%s http://%s-prefill-%d.%s-prefill:8080", args, application.Name, i, application.Name)
-			}
-			args = fmt.Sprintf("%s --decode", args)
-			for i := 0; i < application.Spec.Decode.Replicas; i++ {
-				args = fmt.Sprintf("%s http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
-			}
-			for _, arg := range application.Spec.Router.RouterArgs {
-				args = fmt.Sprintf("%s %s", args, arg)
-			}
-		} else {
-			args = "python3 -m sglang_router.launch_router --pd-disaggregation --host 0.0.0.0 --port 8080"
-			for i := 0; i < application.Spec.Prefill.Replicas; i++ {
-				args = fmt.Sprintf("%s --prefill http://%s-prefill-%d.%s-prefill:8080 20000", args, application.Name, i, application.Name)
-			}
-			for i := 0; i < application.Spec.Decode.Replicas; i++ {
-				args = fmt.Sprintf("%s --decode http://%s-decode-%d.%s-decode:8080", args, application.Name, i, application.Name)
-			}
-			for _, arg := range application.Spec.Router.RouterArgs {
-				args = fmt.Sprintf("%s %s", args, arg)
-			}
-			if !strings.Contains(args, "prefill-policy") {
-				args = fmt.Sprintf("%s --prefill-policy cache_aware", args)
-			}
-			if !strings.Contains(args, "decode-policy") {
-				args = fmt.Sprintf("%s --decode-policy cache_aware", args)
-			}
+		args = fmt.Sprintf("python3 -m sglang_router.launch_router --pd-disaggregation --service-discovery --service-discovery-port 8080 --host 0.0.0.0 --port %d", port)
+		args = fmt.Sprintf("%s --service-discovery-namespace %s", args, application.Namespace)
+		args = fmt.Sprintf("%s --prefill-selector", args)
+		prefillLabels := r.generatePrefillWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
+		for key, value := range prefillLabels {
+			args = fmt.Sprintf("%s %s=%s", args, key, value)
+		}
+		args = fmt.Sprintf("%s --decode-selector", args)
+		decodeLabels := r.generateDecodeWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
+		for key, value := range decodeLabels {
+			args = fmt.Sprintf("%s %s=%s", args, key, value)
+		}
+		for _, arg := range application.Spec.Router.RouterArgs {
+			args = fmt.Sprintf("%s %s", args, arg)
+		}
+		if !strings.Contains(args, "-policy") {
+			args = fmt.Sprintf("%s --policy cache_aware", args)
+		}
+		if !strings.Contains(args, "prometheus-port") {
+			args = fmt.Sprintf("%s --prometheus-host 0.0.0.0", args)
+			args = fmt.Sprintf("%s --prometheus-port %d", args, metricPort)
 		}
 	default:
 		return "", errors.New("unsupported runtime")
