@@ -45,7 +45,7 @@ spec:
     spec:
       initContainers:
         - name: init-c
-          image: busybox
+          image: busybox:1.37.0
           command: ['sh', '-c', 'until echo "ping" | nc arks-redis-master 6379 -w 1  | grep -c PONG; do echo waiting for service arks-redis-master; sleep 2; done']
       containers:
         - name: main
