@@ -430,7 +430,7 @@ func isArksApplicationReady(obj client.Object) bool {
 	if obj == nil {
 		return false
 	}
-	switch obj.(type) {
+	switch appType := obj.(type) {
 	case *arksv1.ArksApplication:
 		app, ok := obj.(*arksv1.ArksApplication)
 		if !ok {
@@ -442,10 +442,9 @@ func isArksApplicationReady(obj client.Object) bool {
 		if !ok {
 			return false
 		}
-		return app.Status.Router.ReadyReplicas > 0 &&
-			app.Status.Prefill.ReadyReplicas == app.Status.Prefill.Replicas &&
-			app.Status.Decode.ReadyReplicas == app.Status.Decode.Replicas 
+		return app.Status.Router.ReadyReplicas > 0
 	default:
+		klog.Warningf("unknown application type: %v", appType)
 		return false
 	}
 }
