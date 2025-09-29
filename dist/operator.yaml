@@ -33903,7 +33903,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: scitixai/arks-operator:v0.1.4
+        image: scitixai/arks-operator:v0.1.5
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
