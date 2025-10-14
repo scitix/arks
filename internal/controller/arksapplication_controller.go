@@ -46,7 +46,6 @@ const (
 	arksApplicationControllerFinalizer  = "application.arks.ai/controller"
 	arksApplicationModelVolumeName      = "models"
 	arksApplicationModelVolumeMountPath = "/models"
-	arksApplicationModelVolumeSubPath   = "models"
 )
 
 // ArksApplicationReconciler reconciles a ArksApplication object
@@ -396,7 +395,6 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 		{
 			Name:      arksApplicationModelVolumeName,
 			MountPath: arksApplicationModelVolumeMountPath,
-			SubPath:   arksApplicationModelVolumeSubPath,
 			ReadOnly:  true,
 		},
 	}

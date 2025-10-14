@@ -784,7 +784,6 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 		{
 			Name:      arksApplicationModelVolumeName,
 			MountPath: arksApplicationModelVolumeMountPath,
-			SubPath:   arksApplicationModelVolumeSubPath,
 			ReadOnly:  true,
 		},
 	}

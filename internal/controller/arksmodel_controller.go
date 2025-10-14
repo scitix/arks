@@ -299,7 +299,6 @@ func (r *ArksModelReconciler) reconcile(ctx context.Context, model *arksv1.ArksM
 											{
 												Name:      arksApplicationModelVolumeName,
 												MountPath: arksApplicationModelVolumeMountPath,
-												SubPath:   arksApplicationModelVolumeSubPath,
 											},
 										},
 									},
@@ -374,9 +373,9 @@ func getScriptsImage() string {
 
 func generateModelPath(model *arksv1.ArksModel) string {
 	if model.Spec.Storage.SubPath != "" {
-		return model.Spec.Storage.SubPath
+		return fmt.Sprintf("/models/%s", model.Spec.Storage.SubPath)
 	}
-	return fmt.Sprintf("/models/%s/%s", model.Namespace, model.Name)
+	return fmt.Sprintf("/models/models/%s/%s", model.Namespace, model.Name)
 }
 
 func generateWorkerPodName(model *arksv1.ArksModel) string {
