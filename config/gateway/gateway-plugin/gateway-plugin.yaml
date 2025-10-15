@@ -50,7 +50,7 @@ spec:
       containers:
         - name: main
           # TODO: image update
-          image: scitixai/arks-gateway-plugins:v0.1.6
+          image: scitixai/arks-gateway-plugins:v0.1.7
           imagePullPolicy: Always
           args:
             - -redis.addrs=arks-redis-master:6379

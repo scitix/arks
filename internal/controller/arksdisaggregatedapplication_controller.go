@@ -607,7 +607,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterDeployment(ctx co
 	readinessProbe := &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/health",
+				Path: "/readiness",
 				Port: intstr.FromInt(8080),
 			},
 		},
@@ -784,7 +784,6 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 		{
 			Name:      arksApplicationModelVolumeName,
 			MountPath: arksApplicationModelVolumeMountPath,
-			SubPath:   arksApplicationModelVolumeSubPath,
 			ReadOnly:  true,
 		},
 	}
