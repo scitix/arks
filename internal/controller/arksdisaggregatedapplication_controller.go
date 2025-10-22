@@ -1086,14 +1086,20 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationLeaderCom
 
 	switch application.Spec.Runtime {
 	case string(arksv1.ArksRuntimeSGLang):
-		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code --host 0.0.0.0 --port 8080 --disaggregation-mode prefill"
-		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
-		args = fmt.Sprintf("%s --served-model-name %s", args, r.getServedModelName(application))
-		args = fmt.Sprintf("%s --disaggregation-mode %s", args, disaggregationRole)
+		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code --host 0.0.0.0 --port 8080"
 		for i := range workload.RuntimeCommonArgs {
 			args = fmt.Sprintf("%s %s", args, workload.RuntimeCommonArgs[i])
 		}
-		if !strings.Contains(args, "enable-metrics") {
+		if !strings.Contains(args, "--model-path") {
+			args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
+		}
+		if !strings.Contains(args, "--served-model-name") {
+			args = fmt.Sprintf("%s --served-model-name %s", args, r.getServedModelName(application))
+		}
+		if !strings.Contains(args, "--disaggregation-mode") {
+			args = fmt.Sprintf("%s --disaggregation-mode %s", args, disaggregationRole)
+		}
+		if !strings.Contains(args, "--enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)
 		}
 		return args, nil
