@@ -117,6 +117,7 @@ func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&arksv1.ArksApplication{}).
 		Named("arksapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
 
@@ -287,53 +288,52 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 			}
 		}
 
-		// check service
-		serviceName := generateApplicationServiceName(application)
-		if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, serviceName, metav1.GetOptions{}); err != nil {
-			if apierrors.IsNotFound(err) {
-				svc := &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: application.Namespace,
-						Name:      serviceName,
-						Labels: map[string]string{
-							"prometheus-discovery": "true",
-							"managed-by":           "arks",
-						},
-					},
-					Spec: corev1.ServiceSpec{
-						Selector: map[string]string{
-							arksv1.ArksControllerKeyApplication:  application.Name,
-							arksv1.ArksControllerKeyWorkLoadRole: arksv1.ArksWorkLoadRoleLeader,
-						},
-						Ports: []corev1.ServicePort{
-							{
-								Protocol: corev1.ProtocolTCP,
-								Port:     8080,
-								Name:     "http",
-							},
-						},
-					},
-				}
-				ctrl.SetControllerReference(application, svc, r.Scheme)
-
-				if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err != nil {
-					if !apierrors.IsAlreadyExists(err) {
-						klog.Errorf("application %s/%s: failed to create application service: %q", application.Namespace, application.Name, err)
-						return ctrl.Result{}, fmt.Errorf("failed to create application service: %q", err)
-					}
-				}
-				klog.Infof("application %s/%s: create application service successfully", application.Namespace, application.Name)
-			} else {
-				klog.Errorf("application %s/%s: failed to check the service: %q", application.Namespace, application.Name, err)
-				return ctrl.Result{}, fmt.Errorf("failed to check the service: %q", err)
-			}
-		}
-
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseRunning)
 		updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionTrue, "Running", "The LLM service is running")
 		klog.Infof("application %s/%s: create underlying LWS successfully", application.Namespace, application.Name)
 	}
 
+	// ensure service exists 
+	serviceName := generateApplicationServiceName(application)
+	if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, serviceName, metav1.GetOptions{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			svc := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: application.Namespace,
+					Name:      serviceName,
+					Labels: map[string]string{
+						"prometheus-discovery": "true",
+						"managed-by":           "arks",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						arksv1.ArksControllerKeyApplication:  application.Name,
+						arksv1.ArksControllerKeyWorkLoadRole: arksv1.ArksWorkLoadRoleLeader,
+					},
+					Ports: []corev1.ServicePort{
+						{
+							Protocol: corev1.ProtocolTCP,
+							Port:     8080,
+							Name:     "http",
+						},
+					},
+				},
+			}
+			ctrl.SetControllerReference(application, svc, r.Scheme)
+
+			if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err != nil {
+				if !apierrors.IsAlreadyExists(err) {
+					klog.Errorf("application %s/%s: failed to ensure service exists: %v", application.Namespace, application.Name, err)
+					return ctrl.Result{}, fmt.Errorf("failed to ensure service exists: %w", err)
+				}
+			}
+			klog.Infof("application %s/%s: service created successfully", application.Namespace, application.Name)
+		} else {
+			klog.Errorf("application %s/%s: failed to check service: %v", application.Namespace, application.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to check service: %w", err)
+		}
+	}
 	// sync status
 	if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
 		if !apierrors.IsNotFound(err) {
