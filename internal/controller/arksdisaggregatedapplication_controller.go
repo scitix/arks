@@ -336,33 +336,37 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 				return ctrl.Result{}, fmt.Errorf("failed to check the router underlying LWS: %q", err)
 			}
 		}
-		routerSvcName := r.generateApplicationServiceName(application)
-		if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, routerSvcName, metav1.GetOptions{}); err != nil {
-			if apierrors.IsNotFound(err) {
-				svc, err := r.generateRouterSvc(application)
-				if err != nil {
-					application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-					r.updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "UnderlayGenerateFailed", fmt.Sprintf("Failed to generate router underlay: %q", err))
-					return ctrl.Result{}, fmt.Errorf("failed to generate router underlay")
-				}
-				svc.Name = routerSvcName
-				ctrl.SetControllerReference(application, svc, r.Scheme)
-
-				if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err != nil {
-					if !apierrors.IsAlreadyExists(err) {
-						klog.Errorf("application %s/%s: failed to create application router service: %q", application.Namespace, application.Name, err)
-						return ctrl.Result{}, fmt.Errorf("failed to create application router service: %q", err)
-					}
-				}
-				klog.Infof("application %s/%s: create application router service successfully", application.Namespace, application.Name)
-			}
-		}
 
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseRunning)
 		r.updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionTrue, "Running", "The LLM service is running")
 		klog.Infof("application %s/%s: create underlying successfully", application.Namespace, application.Name)
 	}
+	
+	// ensure router service exists - moved from Ready condition block
+	routerSvcName := r.generateApplicationServiceName(application)
+	if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, routerSvcName, metav1.GetOptions{}); err != nil {
+		if apierrors.IsNotFound(err) {
+			svc, err := r.generateRouterSvc(application)
+			if err != nil {
+				klog.Errorf("application %s/%s: failed to generate router service: %v", application.Namespace, application.Name, err)
+				return ctrl.Result{}, fmt.Errorf("failed to generate router service: %w", err)
+			}
+			svc.Name = routerSvcName
+			ctrl.SetControllerReference(application, svc, r.Scheme)
 
+			if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Create(ctx, svc, metav1.CreateOptions{}); err != nil {
+				if !apierrors.IsAlreadyExists(err) {
+					klog.Errorf("application %s/%s: failed to ensure router service exists: %v", application.Namespace, application.Name, err)
+					return ctrl.Result{}, fmt.Errorf("failed to ensure router service exists: %w", err)
+				}
+			}
+			klog.Infof("application %s/%s: router service created successfully", application.Namespace, application.Name)
+		} else {
+			klog.Errorf("application %s/%s: failed to check router service: %v", application.Namespace, application.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to check router service: %w", err)
+		}
+	}
+	
 	// sync underly components
 	prefillName := fmt.Sprintf("%s-prefill", application.Name)
 	if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, prefillName, metav1.GetOptions{}); err != nil {
@@ -489,6 +493,7 @@ func (r *ArksDisaggregatedApplicationReconciler) SetupWithManager(mgr ctrl.Manag
 		Named("arksdisaggregatedapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
 		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).
 		Complete(r)
 }
 
