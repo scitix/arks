@@ -191,22 +191,12 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 
 	if !checkApplicationCondition(application, arksv1.ArksApplicationPrecheck) {
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseChecking)
-		if application.Spec.Size > 1 {
-			switch application.Spec.Runtime {
-			case string(arksv1.ArksRuntimeVLLM), string(arksv1.ArksRuntimeSGLang), string(arksv1.ArksRuntimeDynamo):
-			default:
-				application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-				updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", fmt.Sprintf("LWS not support the specified runtime: %s", application.Spec.Runtime))
-				return ctrl.Result{}, nil
-			}
-		} else {
-			switch application.Spec.Runtime {
-			case string(arksv1.ArksRuntimeVLLM), string(arksv1.ArksRuntimeSGLang):
-			default:
-				application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-				updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", fmt.Sprintf("LWS not support the specified runtime: %s", application.Spec.Runtime))
-				return ctrl.Result{}, nil
-			}
+		switch application.Spec.Runtime {
+		case string(arksv1.ArksRuntimeVLLM), string(arksv1.ArksRuntimeSGLang), string(arksv1.ArksRuntimeDynamo):
+		default:
+			application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
+			updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", fmt.Sprintf("LWS not support the specified runtime: %s", application.Spec.Runtime))
+			return ctrl.Result{}, nil
 		}
 
 		// precheck: volumes
@@ -621,7 +611,7 @@ func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 		return []string{"/bin/bash", "-c", args}, nil
 	case string(arksv1.ArksRuntimeSGLang):
 		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code --host 0.0.0.0 --port 8080"
-		args = fmt.Sprintf("%s --model-path /models/%s/%s", args, application.Namespace, application.Spec.Model.Name)
+		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
 		if application.Spec.TensorParallelSize > 0 {
 			args = fmt.Sprintf("%s --tp %d", args, application.Spec.TensorParallelSize)

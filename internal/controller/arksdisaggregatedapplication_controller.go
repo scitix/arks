@@ -1016,9 +1016,9 @@ func (r *ArksDisaggregatedApplicationReconciler) getApplicationRuntimeImage(appl
 	}
 }
 
-func (r *ArksDisaggregatedApplicationReconciler) generateWorkloadLabels(workload arksv1.ArksDisaggregatedWorkload, disaggregatedRole string) map[string]string {
+func (r *ArksDisaggregatedApplicationReconciler) generateWorkloadLabels(workload arksv1.ArksInstanceSpec, disaggregatedRole string) map[string]string {
 	podLabels := map[string]string{}
-	for key, value := range workload.InstanceSpec.Labels {
+	for key, value := range workload.Labels {
 		podLabels[key] = value
 	}
 	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = disaggregatedRole
@@ -1026,7 +1026,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateWorkloadLabels(workload
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateRouterLabels(application *arksv1.ArksDisaggregatedApplication) map[string]string {
-	podLabels := r.generateWorkloadLabels(application.Spec.Decode, "router")
+	podLabels := r.generateWorkloadLabels(application.Spec.Router.InstanceSpec, "router")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
 
@@ -1034,7 +1034,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateRouterLabels(applicatio
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generatePrefillWorkloadLwsLabels(application *arksv1.ArksDisaggregatedApplication, role string) map[string]string {
-	podLabels := r.generateWorkloadLabels(application.Spec.Prefill, "prefill")
+	podLabels := r.generateWorkloadLabels(application.Spec.Prefill.InstanceSpec, "prefill")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
 	podLabels[arksv1.ArksControllerKeyWorkLoadRole] = role
@@ -1043,7 +1043,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generatePrefillWorkloadLwsLabel
 }
 
 func (r *ArksDisaggregatedApplicationReconciler) generateDecodeWorkloadLwsLabels(application *arksv1.ArksDisaggregatedApplication, role string) map[string]string {
-	podLabels := r.generateWorkloadLabels(application.Spec.Decode, "decode")
+	podLabels := r.generateWorkloadLabels(application.Spec.Decode.InstanceSpec, "decode")
 	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
 	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
 	podLabels[arksv1.ArksControllerKeyWorkLoadRole] = role
