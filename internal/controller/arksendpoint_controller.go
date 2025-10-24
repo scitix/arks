@@ -49,17 +49,22 @@ const (
 )
 
 func (r *ArksEndpointReconciler) ArksAppIndexFunc(obj client.Object) []string {
-	app, ok := obj.(*arksv1.ArksApplication)
-	if !ok {
-		return nil
-	}
+      if app, ok := obj.(*arksv1.ArksApplication); ok {
+          if app.Spec.ServedModelName == "" {
+              return []string{app.Spec.Model.Name}
+          }
+          return []string{app.Spec.ServedModelName}
+      }
 
-	if app.Spec.ServedModelName == "" {
-		return []string{app.Spec.Model.Name}
-	}
+      if app, ok := obj.(*arksv1.ArksDisaggregatedApplication); ok {
+          if app.Spec.ServedModelName == "" {
+              return []string{app.Spec.Model.Name}
+          }
+          return []string{app.Spec.ServedModelName}
+      }
 
-	return []string{app.Spec.ServedModelName}
-}
+      return nil
+  }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ArksEndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -312,7 +317,7 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 
 	for _, app := range disAppList.Items {
 		// app already in static route config
-		svcName := fmt.Sprintf("%s-router-svc", app.Name)
+		svcName := getApplicationServiceName(app.Name)
 		if _, exists := staticRouteMap[svcName]; exists {
 			klog.V(4).InfoS("application service exist in static route", "service", svcName)
 			continue
