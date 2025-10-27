@@ -292,11 +292,15 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 			klog.V(4).InfoS("application service exist in static route", "service", svcName)
 			continue
 		}
-		if app.Spec.Replicas != int(app.Status.ReadyReplicas) {
-			klog.V(4).InfoS("application status not ready", "service", svcName)
+		// Calculate dynamic weight based on ReadyReplicas
+		weight := int32(app.Status.ReadyReplicas)
+		if weight == 0 {
+			klog.V(4).InfoS("application has no ready replicas, skipping",
+				"service", svcName,
+				"replicas", app.Spec.Replicas,
+				"readyReplicas", app.Status.ReadyReplicas)
 			continue
 		}
-		// add to backendRefs
 		port := gatewayv1.PortNumber(8080)
 		backendRefs = append(backendRefs, gatewayv1.HTTPBackendRef{
 			BackendRef: gatewayv1.BackendRef{
@@ -304,10 +308,14 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 					Name: gatewayv1.ObjectName(svcName),
 					Port: &port,
 				},
-				Weight: &ep.Spec.DefaultWeight,
+				Weight: &weight,
 			},
 		})
-		klog.V(4).InfoS("application service added in http route", "service", svcName)
+		klog.InfoS("application added to http route with dynamic weight",
+			"service", svcName,
+			"weight", weight,
+			"readyReplicas", app.Status.ReadyReplicas,
+			"replicas", app.Spec.Replicas)
 	}
 
 	for _, app := range disAppList.Items {
@@ -318,12 +326,22 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 			continue
 		}
 
-		if app.Status.Router.ReadyReplicas > 0 &&
-			app.Status.Prefill.ReadyReplicas == app.Status.Prefill.Replicas &&
-			app.Status.Decode.ReadyReplicas == app.Status.Decode.Replicas {
-			klog.Infof("application %s/%s status is ready", app.Namespace, app.Name)
-		} else {
-			klog.Infof("application %s/%s status is not ready", app.Namespace, app.Name)
+		// Calculate dynamic weight based on Router.ReadyReplicas
+		weight := int32(app.Status.Router.ReadyReplicas)
+		if weight == 0 {
+			klog.InfoS("disaggregated application has no ready router pods, skipping",
+				"service", svcName,
+				"routerReplicas", app.Status.Router.Replicas,
+				"routerReadyReplicas", app.Status.Router.ReadyReplicas)
+			continue
+		}
+
+		// Verify Prefill and Decode have at least some ready replicas
+		if app.Status.Prefill.ReadyReplicas == 0 || app.Status.Decode.ReadyReplicas == 0 {
+			klog.InfoS("disaggregated application prefill/decode not ready, skipping",
+				"service", svcName,
+				"prefillReadyReplicas", app.Status.Prefill.ReadyReplicas,
+				"decodeReadyReplicas", app.Status.Decode.ReadyReplicas)
 			continue
 		}
 
@@ -335,10 +353,15 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 					Name: gatewayv1.ObjectName(svcName),
 					Port: &port,
 				},
-				Weight: &ep.Spec.DefaultWeight,
+				Weight: &weight,
 			},
 		})
-		klog.Infof("application service %s/%s added in http route", app.Namespace, app.Name)
+		klog.InfoS("disaggregated application added to http route with dynamic weight",
+			"service", svcName,
+			"weight", weight,
+			"routerReadyReplicas", app.Status.Router.ReadyReplicas,
+			"prefillReadyReplicas", app.Status.Prefill.ReadyReplicas,
+			"decodeReadyReplicas", app.Status.Decode.ReadyReplicas)
 	}
 
 	headerMatch := []gatewayv1.HTTPHeaderMatch{
