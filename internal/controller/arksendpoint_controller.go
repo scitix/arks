@@ -416,20 +416,27 @@ func (r *ArksEndpointReconciler) reconcile(ctx context.Context, ep *arksv1.ArksE
 	return ctrl.Result{}, nil
 }
 
-func getArksEndpointNameFromApplication(obj client.Object) string {
-	if obj == nil {
-		return ""
-	}
-	app, ok := obj.(*arksv1.ArksApplication)
-	if !ok {
-		return ""
-	}
-	if app.Spec.ServedModelName == "" {
-		return app.Spec.Model.Name
-	}
+  func getArksEndpointNameFromApplication(obj client.Object) string {
+        if obj == nil {
+                return ""
+        }
 
-	return app.Spec.ServedModelName
-}
+        if app, ok := obj.(*arksv1.ArksApplication); ok {
+                if app.Spec.ServedModelName == "" {
+                        return app.Spec.Model.Name
+                }
+                return app.Spec.ServedModelName
+        }
+
+        if app, ok := obj.(*arksv1.ArksDisaggregatedApplication); ok {
+                if app.Spec.ServedModelName == "" {
+                        return app.Spec.Model.Name
+                }
+                return app.Spec.ServedModelName
+        }
+
+        return ""
+  }
 
 func isArksApplicationReady(obj client.Object) bool {
 	if obj == nil {
