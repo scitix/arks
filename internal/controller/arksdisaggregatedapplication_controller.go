@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -90,9 +91,24 @@ func (r *ArksDisaggregatedApplicationReconciler) Reconcile(ctx context.Context, 
 	// reconcile model
 	result, err := r.reconcile(ctx, application)
 
-	// update application status
-	if err := r.Client.Status().Update(ctx, application); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update status for application %s/%s (%s): %q", application.Namespace, application.Name, application.UID, err)
+	// update application status with retry on conflict
+	statusErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		// Get latest version before updating status
+		latest := &arksv1.ArksDisaggregatedApplication{}
+		if getErr := r.Client.Get(ctx, req.NamespacedName, latest); getErr != nil {
+			return getErr
+		}
+
+		// Copy status from reconciled application to latest version
+		latest.Status = application.Status
+
+		// Update status on latest version
+		return r.Client.Status().Update(ctx, latest)
+	})
+
+	if statusErr != nil {
+		klog.Errorf("failed to update status for application %s/%s: %v", application.Namespace, application.Name, statusErr)
+		return ctrl.Result{}, fmt.Errorf("failed to update status: %w", statusErr)
 	}
 
 	// handle reconcile error
