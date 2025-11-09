@@ -140,14 +140,34 @@ func (r *ArksApplicationReconciler) remove(ctx context.Context, application *ark
 	}
 	klog.Infof("application %s/%s: remove application service (%s) successfully", application.Namespace, application.Name, serviceName)
 
-	klog.Infof("application %s/%s: start to remove application underlying LWS", application.Namespace, application.Name)
-	if err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
+	klog.Infof("application %s/%s: start to remove application underlying workload", application.Namespace, application.Name)
+
+	// Try to delete RBGS
+	rbgs := &rbgv1alpha1.RoleBasedGroupSet{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: application.Namespace, Name: application.Name}, rbgs); err != nil {
 		if !apierrors.IsNotFound(err) {
-			klog.Errorf("application %s/%s: failed to delete underlying LWS: %q", application.Namespace, serviceName, err)
-			return ctrl.Result{}, fmt.Errorf("failed to delete underlying LWS: %q", err)
+			klog.Errorf("application %s/%s: failed to check RBGS: %q", application.Namespace, application.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to check RBGS: %q", err)
+		}
+	} else {
+		if err := r.Client.Delete(ctx, rbgs); err != nil && !apierrors.IsNotFound(err) {
+			klog.Errorf("application %s/%s: failed to delete underlying RBGS: %q", application.Namespace, application.Name, err)
+			return ctrl.Result{}, fmt.Errorf("failed to delete underlying RBGS: %q", err)
+		}
+		klog.Infof("application %s/%s: remove application underlying RBGS successfully", application.Namespace, application.Name)
+	}
+
+	// Try to delete LWS for backward compatibility
+	if r.LWSClient != nil {
+		if err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Delete(ctx, application.Name, metav1.DeleteOptions{}); err != nil {
+			if !apierrors.IsNotFound(err) {
+				klog.Errorf("application %s/%s: failed to delete underlying LWS: %q", application.Namespace, serviceName, err)
+				return ctrl.Result{}, fmt.Errorf("failed to delete underlying LWS: %q", err)
+			}
+		} else {
+			klog.Infof("application %s/%s: remove application underlying LWS successfully", application.Namespace, application.Name)
 		}
 	}
-	klog.Infof("application %s/%s: remove application underlying LWS successfully", application.Namespace, application.Name)
 
 	// remove finalizer
 	removeFinalizer(application, arksApplicationControllerFinalizer)
@@ -701,14 +721,38 @@ func generateRBGS(application *arksv1.ArksApplication, model *arksv1.ArksModel) 
 
 	// Create the base pod spec
 	podSpec := corev1.PodSpec{
+		TerminationGracePeriodSeconds: application.Spec.InstanceSpec.TerminationGracePeriodSeconds,
+		ActiveDeadlineSeconds:         application.Spec.InstanceSpec.ActiveDeadlineSeconds,
+		DNSPolicy:                     application.Spec.InstanceSpec.DNSPolicy,
+		DNSConfig:                     application.Spec.InstanceSpec.DNSConfig,
+		AutomountServiceAccountToken:  application.Spec.InstanceSpec.AutomountServiceAccountToken,
+		NodeName:                      application.Spec.InstanceSpec.NodeName,
+		HostNetwork:                   application.Spec.InstanceSpec.HostNetwork,
+		HostPID:                       application.Spec.InstanceSpec.HostPID,
+		HostIPC:                       application.Spec.InstanceSpec.HostIPC,
+		ShareProcessNamespace:         application.Spec.InstanceSpec.ShareProcessNamespace,
+		SecurityContext:               application.Spec.InstanceSpec.PodSecurityContext,
+		Subdomain:                     application.Spec.InstanceSpec.Subdomain,
+		HostAliases:                   application.Spec.InstanceSpec.HostAliases,
+		PriorityClassName:             application.Spec.InstanceSpec.PriorityClassName,
+		Priority:                      application.Spec.InstanceSpec.Priority,
+		RuntimeClassName:              application.Spec.InstanceSpec.RuntimeClassName,
+		EnableServiceLinks:            application.Spec.InstanceSpec.EnableServiceLinks,
+		PreemptionPolicy:              application.Spec.InstanceSpec.PreemptionPolicy,
+		Overhead:                      application.Spec.InstanceSpec.Overhead,
+		TopologySpreadConstraints:     application.Spec.InstanceSpec.TopologySpreadConstraints,
+		SetHostnameAsFQDN:             application.Spec.InstanceSpec.SetHostnameAsFQDN,
+		OS:                            application.Spec.InstanceSpec.OS,
+		HostUsers:                     application.Spec.InstanceSpec.HostUsers,
+		SchedulingGates:               application.Spec.InstanceSpec.SchedulingGates,
+		ResourceClaims:                application.Spec.InstanceSpec.ResourceClaims,
 		ServiceAccountName:            application.Spec.InstanceSpec.ServiceAccountName,
 		SchedulerName:                 application.Spec.InstanceSpec.SchedulerName,
 		Affinity:                      application.Spec.InstanceSpec.Affinity,
 		NodeSelector:                  application.Spec.InstanceSpec.NodeSelector,
 		Tolerations:                   application.Spec.InstanceSpec.Tolerations,
-		TerminationGracePeriodSeconds: application.Spec.InstanceSpec.TerminationGracePeriodSeconds,
-		InitContainers:                application.Spec.InstanceSpec.InitContainers,
 		ImagePullSecrets:              application.Spec.RuntimeImagePullSecrets,
+		InitContainers:                application.Spec.InstanceSpec.InitContainers,
 		Volumes:                       volumes,
 		Containers: []corev1.Container{
 			{
@@ -719,8 +763,15 @@ func generateRBGS(application *arksv1.ArksApplication, model *arksv1.ArksModel) 
 				Env:             envs,
 				Resources:       application.Spec.InstanceSpec.Resources,
 				VolumeMounts:    volumeMounts,
-				LivenessProbe:   livenessProbe,
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: 8080,
+					},
+				},
+				SecurityContext: application.Spec.InstanceSpec.SecurityContext,
 				ReadinessProbe:  readinessProbe,
+				LivenessProbe:   livenessProbe,
+				StartupProbe:    application.Spec.InstanceSpec.StartupProbe,
 			},
 		},
 	}
