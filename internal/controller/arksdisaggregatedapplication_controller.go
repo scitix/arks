@@ -40,6 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
 	rbgv1alpha1 "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
@@ -516,7 +517,7 @@ func (r *ArksDisaggregatedApplicationReconciler) SetupWithManager(mgr ctrl.Manag
 		Named("arksdisaggregatedapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&rbgv1alpha1.RoleBasedGroupSet{}).
+		Owns(&rbgv1alpha1.RoleBasedGroupSet{}, ctrl.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Complete(r)
 }
 
