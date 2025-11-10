@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	arksv1 "github.com/arks-ai/arks/api/v1"
+	rbgv1alpha1 "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -60,6 +61,8 @@ var _ = BeforeSuite(func() {
 
 	var err error
 	err = arksv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = rbgv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

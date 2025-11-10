@@ -26,6 +26,8 @@ type ArksRuntime string
 type ArksApplicationPhase string
 type ArksApplicationConditionType string
 
+type ArksBackend string
+
 const (
 	ArksApplicationPhasePending  ArksApplicationPhase = "Pending"
 	ArksApplicationPhaseChecking ArksApplicationPhase = "Checking"
@@ -45,6 +47,10 @@ const (
 	ArksRuntimeVLLM    ArksRuntime = "vllm"
 	ArksRuntimeSGLang  ArksRuntime = "sglang"
 	ArksRuntimeDynamo  ArksRuntime = "dynamo"
+
+	// Backend types for workload orchestration
+	ArksBackendLWS ArksBackend = "lws" // LeaderWorkerSet backend (no rolling update)
+	ArksBackendRBG ArksBackend = "rbg" // RoleBasedGroup backend (supports rolling update)
 )
 
 const (

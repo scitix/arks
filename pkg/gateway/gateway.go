@@ -268,6 +268,12 @@ func (s *HealthServer) Check(ctx context.Context, in *healthPb.HealthCheckReques
 	return &healthPb.HealthCheckResponse{Status: healthPb.HealthCheckResponse_SERVING}, nil
 }
 
+func (s *HealthServer) List(ctx context.Context, in *healthPb.HealthListRequest) (*healthPb.HealthListResponse, error) {
+	return &healthPb.HealthListResponse{
+		Statuses: map[string]*healthPb.HealthCheckResponse{},
+	}, nil
+}
+
 func (s *HealthServer) Watch(in *healthPb.HealthCheckRequest, srv healthPb.Health_WatchServer) error {
 	return status.Error(codes.Unimplemented, "watch is not implemented")
 }
