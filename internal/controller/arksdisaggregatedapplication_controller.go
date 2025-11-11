@@ -40,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
 	rbgv1alpha1 "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
@@ -110,12 +109,10 @@ func (r *ArksDisaggregatedApplicationReconciler) remove(ctx context.Context, app
 	routerName := fmt.Sprintf("%s-router", application.Name)
 	routerSvcName := r.generateApplicationServiceName(application)
 
-	// Detect backend to determine which resources to clean up
 	backend := r.determineBackend(ctx, application.Namespace, prefillName)
 	klog.Infof("application %s/%s: removing with backend: %s", application.Namespace, application.Name, backend)
 
 	if backend == arksv1.ArksBackendRBG {
-		// RBG path: delete unified RBGS
 		klog.Infof("application %s/%s: start to remove unified RBGS", application.Namespace, application.Name)
 		unifiedRBGS := &rbgv1alpha1.RoleBasedGroupSet{
 			ObjectMeta: metav1.ObjectMeta{
@@ -131,7 +128,6 @@ func (r *ArksDisaggregatedApplicationReconciler) remove(ctx context.Context, app
 		}
 		klog.Infof("application %s/%s: remove unified RBGS successfully", application.Namespace, application.Name)
 	} else {
-		// LWS/legacy path: delete separate workloads
 		klog.Infof("application %s/%s: start to remove application underlying prefill workload", application.Namespace, application.Name)
 		if err := r.deleteDisaggregatedWorkload(ctx, application.Namespace, prefillName); err != nil {
 			klog.Errorf("application %s/%s: failed to delete underlying prefill workload: %q", application.Namespace, application.Name, err)
@@ -272,12 +268,10 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 	prefillName := fmt.Sprintf("%s-prefill", application.Name)
 	decodeName := fmt.Sprintf("%s-decode", application.Name)
 
-	// Detect backend: LWS if exists, otherwise RBG
 	backend := r.determineBackend(ctx, application.Namespace, prefillName)
 	klog.Infof("application %s/%s: using backend: %s", application.Namespace, application.Name, backend)
 
 	if backend == arksv1.ArksBackendRBG {
-		// Reconcile unified RBGS with 3 roles: scheduler, prefill, decode
 		if err := r.reconcileUnified(ctx, application, model); err != nil {
 			application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
 			r.updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlayReconcileFailed", fmt.Sprintf("Failed to reconcile unified RBGS: %q", err))
@@ -343,7 +337,6 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 			}
 		}
 
-		// Router Deployment only for LWS mode (scheduler role handles routing in RBG mode)
 		if backend != arksv1.ArksBackendRBG {
 			routerName := fmt.Sprintf("%s-router", application.Name)
 			if _, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, routerName, metav1.GetOptions{}); err != nil {
@@ -371,7 +364,6 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 				}
 			}
 
-			// Router Service for LWS mode (reconcileUnified handles it for RBG mode)
 			routerSvcName := r.generateApplicationServiceName(application)
 			if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, routerSvcName, metav1.GetOptions{}); err != nil {
 				if apierrors.IsNotFound(err) {
@@ -402,7 +394,6 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcile(ctx context.Context, 
 
 	// sync underly components
 	if backend == arksv1.ArksBackendRBG {
-		// Sync status from unified RBGS
 		if err := r.syncUnifiedStatus(ctx, application); err != nil {
 			klog.Errorf("application %s/%s: failed to sync unified RBGS status: %q", application.Namespace, application.Name, err)
 			return ctrl.Result{}, fmt.Errorf("failed to sync unified RBGS status: %w", err)
@@ -517,7 +508,7 @@ func (r *ArksDisaggregatedApplicationReconciler) SetupWithManager(mgr ctrl.Manag
 		Named("arksdisaggregatedapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&rbgv1alpha1.RoleBasedGroupSet{}, ctrl.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&rbgv1alpha1.RoleBasedGroupSet{}).
 		Complete(r)
 }
 
@@ -1053,7 +1044,6 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedRBGS(appli
 }
 
 // buildSchedulerRole builds the scheduler role spec for unified RBGS.
-// The scheduler role runs the router component without LWS workload.
 func (r *ArksDisaggregatedApplicationReconciler) buildSchedulerRole(ctx context.Context, application *arksv1.ArksDisaggregatedApplication) (rbgv1alpha1.RoleSpec, error) {
 	serviceAccountName := application.Spec.Router.InstanceSpec.ServiceAccountName
 	if serviceAccountName == "" {
@@ -1199,7 +1189,6 @@ func (r *ArksDisaggregatedApplicationReconciler) buildSchedulerRole(ctx context.
 }
 
 // buildWorkloadRole builds prefill or decode role spec for unified RBGS.
-// The workload role uses LeaderWorkerSet workload type.
 func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *arksv1.ArksDisaggregatedApplication, model *arksv1.ArksModel, disaggregatedRole string) (rbgv1alpha1.RoleSpec, error) {
 	image, err := r.getApplicationRuntimeImage(application)
 	if err != nil {
@@ -1407,10 +1396,8 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 }
 
 // reconcileUnified creates and syncs the unified RBGS for disaggregated workloads.
-// This uses the standard RBG architecture with 3 roles in a single RBGS.
 func (r *ArksDisaggregatedApplicationReconciler) reconcileUnified(ctx context.Context, application *arksv1.ArksDisaggregatedApplication, model *arksv1.ArksModel) error {
 	klog.Infof("========== UNIFIED-RBGS-V8-CODE-RUNNING ========== application %s/%s", application.Namespace, application.Name)
-	// Create or update unified RBGS with 3 roles: scheduler, prefill, decode
 	rbgs := &rbgv1alpha1.RoleBasedGroupSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      application.Name,
@@ -1436,7 +1423,6 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcileUnified(ctx context.Co
 		klog.Infof("application %s/%s: %s unified RBGS successfully", application.Namespace, application.Name, result)
 	}
 
-	// Create router service
 	routerSvcName := r.generateApplicationServiceName(application)
 	if _, err := r.KubeClient.CoreV1().Services(application.Namespace).Get(ctx, routerSvcName, metav1.GetOptions{}); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -1459,9 +1445,7 @@ func (r *ArksDisaggregatedApplicationReconciler) reconcileUnified(ctx context.Co
 	return nil
 }
 
-// syncUnifiedStatus extracts status from unified RBGS and updates application status.
-// Note: RBGS status only provides aggregate replicas count, not per-role breakdown.
-// We populate all role statuses with the same aggregate values as a best-effort signal.
+// syncUnifiedStatus syncs status from unified RBGS to application.
 func (r *ArksDisaggregatedApplicationReconciler) syncUnifiedStatus(ctx context.Context, application *arksv1.ArksDisaggregatedApplication) error {
 	unifiedRBGS := &rbgv1alpha1.RoleBasedGroupSet{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: application.Namespace, Name: application.Name}, unifiedRBGS); err != nil {
@@ -1473,7 +1457,6 @@ func (r *ArksDisaggregatedApplicationReconciler) syncUnifiedStatus(ctx context.C
 		return fmt.Errorf("unified RBGS doesn't exist")
 	}
 
-	// RBGS provides only aggregate status; populate all role statuses with aggregate values
 	application.Status.Router.Replicas = unifiedRBGS.Status.Replicas
 	application.Status.Router.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
 	application.Status.Router.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
@@ -1489,8 +1472,7 @@ func (r *ArksDisaggregatedApplicationReconciler) syncUnifiedStatus(ctx context.C
 	return nil
 }
 
-// generateUnifiedRBGS generates a unified RoleBasedGroupSet with 3 roles: scheduler, prefill, decode.
-// This follows the standard RBG architecture for disaggregated workloads.
+// generateUnifiedRBGS generates a unified RoleBasedGroupSet with 3 roles.
 func (r *ArksDisaggregatedApplicationReconciler) generateUnifiedRBGS(ctx context.Context, application *arksv1.ArksDisaggregatedApplication, model *arksv1.ArksModel) (*rbgv1alpha1.RoleBasedGroupSet, error) {
 	schedulerRole, err := r.buildSchedulerRole(ctx, application)
 	if err != nil {
@@ -1525,8 +1507,6 @@ func (r *ArksDisaggregatedApplicationReconciler) generateUnifiedRBGS(ctx context
 		}
 	}
 
-	// RBGS replicas represents the number of groups, each group contains scheduler + prefill + decode
-	// For disaggregated mode, we use 1 group with multiple role instances
 	rbgsReplicas := int32(1)
 	prefillRole.Replicas = ptr.To(prefillReplicas)
 	decodeRole.Replicas = ptr.To(decodeReplicas)
