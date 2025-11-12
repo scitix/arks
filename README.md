@@ -76,7 +76,7 @@ More docs:
 # Install dependencies (skip if already installed with correct version)
 kubectl apply -f https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml
 kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/v0.7.0/manifests.yaml
-kubectl apply -f https://github.com/sgl-project/rbg/releases/download/v0.5.0-alpha.4/manifests.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.5.0-alpha.4/deploy/kubectl/manifests.yaml
 
 # Install Arks
 git clone https://github.com/scitix/arks.git

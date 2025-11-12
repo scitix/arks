@@ -73,7 +73,7 @@ More docs:
 # 安装依赖（如已安装正确版本可跳过）
 kubectl apply -f https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml
 kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/v0.7.0/manifests.yaml
-kubectl apply -f https://github.com/sgl-project/rbg/releases/download/v0.5.0-alpha.4/manifests.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.5.0-alpha.4/deploy/kubectl/manifests.yaml
 
 # 安装 Arks
 git clone https://github.com/scitix/arks.git
