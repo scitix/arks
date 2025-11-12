@@ -1,4 +1,0 @@
-kind: Kustomization
-
-resources:
-- https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml

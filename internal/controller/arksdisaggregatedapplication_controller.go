@@ -1322,12 +1322,12 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		Volumes:                       volumes,
 		Containers: []corev1.Container{
 			{
-				Name:            "main",
-				Image:           image,
-				Command:         leaderCommands,
-				Resources:       workload.InstanceSpec.Resources,
-				VolumeMounts:    volumeMounts,
-				Env:             leaderEnvs,
+				Name:         "main",
+				Image:        image,
+				Command:      leaderCommands,
+				Resources:    workload.InstanceSpec.Resources,
+				VolumeMounts: volumeMounts,
+				Env:          leaderEnvs,
 				Ports: []corev1.ContainerPort{
 					{
 						ContainerPort: 8080,
@@ -1397,7 +1397,6 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 
 // reconcileUnified creates and syncs the unified RBGS for disaggregated workloads.
 func (r *ArksDisaggregatedApplicationReconciler) reconcileUnified(ctx context.Context, application *arksv1.ArksDisaggregatedApplication, model *arksv1.ArksModel) error {
-	klog.Infof("========== UNIFIED-RBGS-V8-CODE-RUNNING ========== application %s/%s", application.Namespace, application.Name)
 	rbgs := &rbgv1alpha1.RoleBasedGroupSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      application.Name,

@@ -28,7 +28,7 @@ require (
 	sigs.k8s.io/rbgs v0.0.0-00010101000000-000000000000
 )
 
-replace sigs.k8s.io/rbgs => github.com/sgl-project/rbg v0.4.0
+replace sigs.k8s.io/rbgs => github.com/sgl-project/rbg v0.5.0-alpha.4
 
 require (
 	cel.dev/expr v0.24.0 // indirect
@@ -74,7 +74,7 @@ require (
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
-	github.com/spf13/pflag v1.0.6 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/tidwall/gjson v1.14.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
