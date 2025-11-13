@@ -312,13 +312,13 @@ type ArksApplicationStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The current phase of the application"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Replicas",type="string",JSONPath=".status.replicas"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.readyReplicas"
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Model",type="string",JSONPath=".spec.model.name",description="The model being used",priority=1
 // +kubebuilder:printcolumn:name="Runtime",type="string",JSONPath=".spec.runtime",description="The runtime environment",priority=1
 // +kubebuilder:printcolumn:name="Driver",type="string",JSONPath=".spec.driver",description="The driver name",priority=1
-// +kubebuilder:resource:shortName=aapp
+// +kubebuilder:resource:shortName=arkapp
 
 type ArksApplication struct {
 	metav1.TypeMeta   `json:",inline"`

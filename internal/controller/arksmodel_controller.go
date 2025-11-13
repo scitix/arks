@@ -22,10 +22,12 @@ import (
 	"os"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,12 +81,14 @@ func (r *ArksModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return r.remove(ctx, model)
 	}
 
+	original := model.DeepCopy()
+
 	// reconcile model
 	result, err := r.reconcile(ctx, model)
 
 	// update application status
-	if err := r.Client.Status().Update(ctx, model); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update status for %s/%s (%s): %q", model.Namespace, model.Name, model.UID, err)
+	if statusErr := r.patchModelStatus(ctx, original, model); statusErr != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update status for %s/%s (%s): %w", model.Namespace, model.Name, model.UID, statusErr)
 	}
 
 	// handle reconcile error
@@ -128,9 +132,8 @@ func (r *ArksModelReconciler) remove(ctx context.Context, model *arksv1.ArksMode
 	}
 
 	// remove finalizer
-	removeFinalizer(model, arksModelControllerFinalizer)
-	if err := r.Client.Update(ctx, model); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to remove model finalizer: %q", err)
+	if err := r.removeModelFinalizerWithRetry(ctx, model); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to remove model finalizer: %w", err)
 	}
 
 	klog.Infof("model %s/%s: delete model successfully", model.Namespace, model.Name)
@@ -448,6 +451,38 @@ func initializeModelCondition(model *arksv1.ArksModel) {
 		Reason:             "NewIncomming",
 		Message:            "Wait the controller to check the model status",
 		LastTransitionTime: metav1.Now(),
+	})
+}
+
+func (r *ArksModelReconciler) patchModelStatus(ctx context.Context, original, updated *arksv1.ArksModel) error {
+	if apiequality.Semantic.DeepEqual(original.Status, updated.Status) {
+		return nil
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &arksv1.ArksModel{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(updated), current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		current.Status = updated.Status
+		return r.Client.Status().Update(ctx, current)
+	})
+}
+
+func (r *ArksModelReconciler) removeModelFinalizerWithRetry(ctx context.Context, model *arksv1.ArksModel) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &arksv1.ArksModel{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(model), current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		if !hasFinalizer(current, arksModelControllerFinalizer) {
+			return nil
+		}
+
+		removeFinalizer(current, arksModelControllerFinalizer)
+		return r.Client.Update(ctx, current)
 	})
 }
 

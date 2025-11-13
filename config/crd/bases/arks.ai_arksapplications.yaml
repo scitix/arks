@@ -12,7 +12,7 @@ spec:
     listKind: ArksApplicationList
     plural: arksapplications
     shortNames:
-    - aapp
+    - arkapp
     singular: arksapplication
   scope: Namespaced
   versions:
@@ -21,15 +21,15 @@ spec:
       jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     - jsonPath: .status.replicas
       name: Replicas
       type: string
     - jsonPath: .status.readyReplicas
       name: Ready
       type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
     - description: The model being used
       jsonPath: .spec.model.name
       name: Model

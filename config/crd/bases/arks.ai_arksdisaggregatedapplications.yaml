@@ -11,10 +11,37 @@ spec:
     kind: ArksDisaggregatedApplication
     listKind: ArksDisaggregatedApplicationList
     plural: arksdisaggregatedapplications
+    shortNames:
+    - arkdapp
     singular: arksdisaggregatedapplication
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The current phase of the application
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - description: Ready router replicas
+      jsonPath: .status.router.readyReplicas
+      name: Router Ready
+      type: string
+    - description: Ready prefill replicas
+      jsonPath: .status.prefill.readyReplicas
+      name: Prefill Ready
+      type: string
+    - description: Ready decode replicas
+      jsonPath: .status.decode.readyReplicas
+      name: Decode Ready
+      type: string
+    - description: The model being used
+      jsonPath: .spec.model.name
+      name: Model
+      priority: 1
+      type: string
+    name: v1
     schema:
       openAPIV3Schema:
         description: ArksDisaggregatedApplication is the Schema for the arksdisaggregatedapplications
