@@ -1202,17 +1202,52 @@ func (r *ArksDisaggregatedApplicationReconciler) syncUnifiedStatus(ctx context.C
 		return fmt.Errorf("unified RBGS doesn't exist")
 	}
 
-	application.Status.Router.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Router.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Router.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
+	// Get the underlying RBG (RoleBasedGroup) to access per-role status
+	// RBGS creates RBG instances with naming pattern: {rbgs-name}-{index}
+	// For unified mode, there's typically one RBG with index 0
+	rbgName := fmt.Sprintf("%s-0", application.Name)
+	rbg := &rbgv1alpha1.RoleBasedGroup{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: application.Namespace, Name: rbgName}, rbg); err != nil {
+		if !apierrors.IsNotFound(err) {
+			klog.Warningf("application %s/%s: failed to get RBG: %v", application.Namespace, application.Name, err)
+		}
+		// If RBG doesn't exist, reset all status
+		application.Status.Router = arksv1.ArksComponentStatus{}
+		application.Status.Prefill = arksv1.ArksComponentStatus{}
+		application.Status.Decode = arksv1.ArksComponentStatus{}
+		return nil
+	}
 
-	application.Status.Prefill.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Prefill.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Prefill.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
-
-	application.Status.Decode.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Decode.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Decode.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
+	// Sync status from RBG's RoleStatuses (Replicas and ReadyReplicas)
+	// and get UpdatedReplicas from underlying workloads
+	for _, roleStatus := range rbg.Status.RoleStatuses {
+		switch roleStatus.Name {
+		case "scheduler":
+			application.Status.Router.Replicas = roleStatus.Replicas
+			application.Status.Router.ReadyReplicas = roleStatus.ReadyReplicas
+			// Get UpdatedReplicas from Deployment
+			routerDeploymentName := fmt.Sprintf("%s-scheduler", rbgName)
+			if routerDeployment, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, routerDeploymentName, metav1.GetOptions{}); err == nil {
+				application.Status.Router.UpdatedReplicas = routerDeployment.Status.UpdatedReplicas
+			}
+		case "prefill":
+			application.Status.Prefill.Replicas = roleStatus.Replicas
+			application.Status.Prefill.ReadyReplicas = roleStatus.ReadyReplicas
+			// Get UpdatedReplicas from LWS
+			prefillLWSName := fmt.Sprintf("%s-prefill", rbgName)
+			if prefillLWS, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, prefillLWSName, metav1.GetOptions{}); err == nil {
+				application.Status.Prefill.UpdatedReplicas = prefillLWS.Status.UpdatedReplicas
+			}
+		case "decode":
+			application.Status.Decode.Replicas = roleStatus.Replicas
+			application.Status.Decode.ReadyReplicas = roleStatus.ReadyReplicas
+			// Get UpdatedReplicas from LWS
+			decodeLWSName := fmt.Sprintf("%s-decode", rbgName)
+			if decodeLWS, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, decodeLWSName, metav1.GetOptions{}); err == nil {
+				application.Status.Decode.UpdatedReplicas = decodeLWS.Status.UpdatedReplicas
+			}
+		}
+	}
 
 	return nil
 }
