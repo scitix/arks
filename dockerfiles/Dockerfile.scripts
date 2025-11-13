@@ -2,5 +2,6 @@ FROM ubuntu:22.04
 
 RUN apt update && apt install -y python3 pip
 RUN pip install huggingface_hub
+RUN pip install requests
 
 ADD ./scripts /scripts
