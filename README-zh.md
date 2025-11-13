@@ -66,18 +66,20 @@ More docs:
 - 配置好kubectl访问权限
 
 ### 安装部署
+
+> **注意：** Arks 需要 LWS v0.7.0 和 RBGS v0.5.0-alpha.4。请先安装 LWS，再安装 RBGS。
+
 ```bash
+# 安装依赖（如已安装正确版本可跳过）
+kubectl apply --server-side -f https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/v0.7.0/manifests.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.5.0-alpha.4/deploy/kubectl/manifests.yaml
+
+# 安装 Arks
 git clone https://github.com/scitix/arks.git
 cd arks
-
-# 安装 envoy 网关, lws依赖
-kubectl create -f dist/dependency.yaml
-
-# 安装 arks operator
-kubectl create -f dist/operator.yaml
-
-# 安装 arks gateway plugins
-kubectl create -f dist/gateway.yaml
+kubectl apply --server-side -f dist/operator.yaml
+kubectl apply --server-side -f dist/gateway.yaml
 ```
 
 verification:
@@ -191,7 +193,6 @@ curl http://${ENDPOINT}/v1/chat/completions -k \
 kubectl delete -f examples/quickstart/quickstart.yaml --ignore-not-found=true
 kubectl delete -f dist/gateway.yaml
 kubectl delete -f dist/operator.yaml
-kubectl delete -f dist/dependency.yaml
 ```
 
 ## 编译构建
