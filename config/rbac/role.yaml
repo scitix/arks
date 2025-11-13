@@ -109,3 +109,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - workloads.x-k8s.io
+  resources:
+  - rolebasedgroupsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
