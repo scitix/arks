@@ -22,21 +22,23 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
@@ -58,6 +60,8 @@ type ArksApplicationReconciler struct {
 	LWSClient  *lwscli.Clientset
 	Scheme     *runtime.Scheme
 }
+
+const arksApplicationModelField = "spec.model.name"
 
 // +kubebuilder:rbac:groups=arks.ai,resources=arksapplications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=arks.ai,resources=arksapplications/status,verbs=get;update;patch
@@ -95,12 +99,14 @@ func (r *ArksApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return r.remove(ctx, application)
 	}
 
+	original := application.DeepCopy()
+
 	// reconcile model
 	result, err := r.reconcile(ctx, application)
 
 	// update application status
-	if err := r.Client.Status().Update(ctx, application); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to update status for application %s/%s (%s): %q", application.Namespace, application.Name, application.UID, err)
+	if statusErr := r.patchApplicationStatus(ctx, original, application); statusErr != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to update status for application %s/%s (%s): %w", application.Namespace, application.Name, application.UID, statusErr)
 	}
 
 	// handle reconcile error
@@ -114,6 +120,21 @@ func (r *ArksApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	ctx := context.Background()
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &arksv1.ArksApplication{}, arksApplicationModelField, func(obj client.Object) []string {
+		app, ok := obj.(*arksv1.ArksApplication)
+		if !ok {
+			return nil
+		}
+		if app.Spec.Model.Name == "" {
+			return nil
+		}
+		return []string{app.Spec.Model.Name}
+	}); err != nil {
+		return fmt.Errorf("failed to index arksapplication by model: %w", err)
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 30,
@@ -122,6 +143,7 @@ func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("arksapplication").
 		Owns(&lwsapi.LeaderWorkerSet{}).
 		Owns(&rbgv1alpha1.RoleBasedGroupSet{}).
+		Watches(&arksv1.ArksModel{}, handler.EnqueueRequestsFromMapFunc(r.requestsForModel)).
 		Complete(r)
 }
 
@@ -171,9 +193,8 @@ func (r *ArksApplicationReconciler) remove(ctx context.Context, application *ark
 	}
 
 	// remove finalizer
-	removeFinalizer(application, arksApplicationControllerFinalizer)
-	if err := r.Client.Update(ctx, application); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to remove application finalizer: %q", err)
+	if err := r.removeFinalizerWithRetry(ctx, application); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to remove application finalizer: %w", err)
 	}
 
 	klog.Infof("application %s/%s: delete the application successfully", application.Namespace, application.Name)
@@ -195,10 +216,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 
 	initializeApplicationCondition(application)
 
-	// precheck: driver &&runtime
-	if application.Spec.Runtime == "" {
-		application.Spec.Runtime = string(arksv1.ArksRuntimeDefault)
-	}
+	appRuntime := getStandaloneApplicationRuntime(application)
 
 	if !hasFinalizer(application, arksApplicationControllerFinalizer) {
 		addFinalizer(application, arksApplicationControllerFinalizer)
@@ -215,11 +233,11 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 
 	if !checkApplicationCondition(application, arksv1.ArksApplicationPrecheck) {
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseChecking)
-		switch application.Spec.Runtime {
+		switch appRuntime {
 		case string(arksv1.ArksRuntimeVLLM), string(arksv1.ArksRuntimeSGLang), string(arksv1.ArksRuntimeDynamo):
 		default:
 			application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-			updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", fmt.Sprintf("LWS not support the specified runtime: %s", application.Spec.Runtime))
+			updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionFalse, "RuntimeNotSupport", fmt.Sprintf("LWS not support the specified runtime: %s", appRuntime))
 			return ctrl.Result{}, nil
 		}
 
@@ -271,7 +289,7 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 			klog.Infof("application %s/%s: the referenced model (%s) is loaded successfully", application.Namespace, application.Name, model.Name)
 		default:
 			klog.V(4).Infof("application %s/%s: wait for the referenced model (%s) be loaded", application.Namespace, application.Name, model.Name)
-			return ctrl.Result{RequeueAfter: 3 * time.Second}, nil
+			return ctrl.Result{}, nil
 		}
 	}
 
@@ -441,6 +459,8 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 
 // GenerateLws generates LeaderWorkerSet for ArksApplication
 func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*lwsapi.LeaderWorkerSet, error) {
+	appRuntime := getStandaloneApplicationRuntime(application)
+
 	image, err := getApplicationRuntimeImage(application)
 	if err != nil {
 		return nil, err
@@ -489,7 +509,7 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 
 	envs := []corev1.EnvVar{}
 	envs = append(envs, application.Spec.InstanceSpec.Env...)
-	if application.Spec.Runtime == string(arksv1.ArksRuntimeSGLang) {
+	if appRuntime == string(arksv1.ArksRuntimeSGLang) {
 		envs = append(envs, corev1.EnvVar{
 			Name: "LWS_WORKER_INDEX",
 			ValueFrom: &corev1.EnvVarSource{
@@ -646,6 +666,8 @@ func generateLws(application *arksv1.ArksApplication, model *arksv1.ArksModel) (
 }
 
 func generateRBGS(application *arksv1.ArksApplication, model *arksv1.ArksModel) (*rbgv1alpha1.RoleBasedGroupSet, error) {
+	appRuntime := getStandaloneApplicationRuntime(application)
+
 	image, err := getApplicationRuntimeImage(application)
 	if err != nil {
 		return nil, err
@@ -694,7 +716,7 @@ func generateRBGS(application *arksv1.ArksApplication, model *arksv1.ArksModel) 
 
 	envs := []corev1.EnvVar{}
 	envs = append(envs, application.Spec.InstanceSpec.Env...)
-	if application.Spec.Runtime == string(arksv1.ArksRuntimeSGLang) {
+	if appRuntime == string(arksv1.ArksRuntimeSGLang) {
 		envs = append(envs, corev1.EnvVar{
 			Name: "LWS_WORKER_INDEX",
 			ValueFrom: &corev1.EnvVarSource{
@@ -869,7 +891,9 @@ func getApplicationRuntimeImage(application *arksv1.ArksApplication) (string, er
 		return application.Spec.RuntimeImage, nil
 	}
 
-	switch application.Spec.Runtime {
+	appRuntime := getStandaloneApplicationRuntime(application)
+
+	switch appRuntime {
 	case string(arksv1.ArksRuntimeVLLM):
 		vllmImage := os.Getenv("ARKS_RUNTIME_DEFAULT_VLLM_IMAGE")
 		if vllmImage != "" {
@@ -896,7 +920,9 @@ func getApplicationRuntimeImage(application *arksv1.ArksApplication) (string, er
 }
 
 func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel) ([]string, error) {
-	switch application.Spec.Runtime {
+	appRuntime := getStandaloneApplicationRuntime(application)
+
+	switch appRuntime {
 	case string(arksv1.ArksRuntimeVLLM):
 		args := "/bin/bash /vllm-workspace/examples/online_serving/multi-node-serving.sh leader --ray_cluster_size=$(LWS_GROUP_SIZE); python3 -m vllm.entrypoints.openai.api_server --port 8080"
 		args = fmt.Sprintf("%s --model %s", args, generateModelPath(model))
@@ -935,7 +961,9 @@ func generateLeaderCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 }
 
 func generateWorkerCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel) ([]string, error) {
-	switch application.Spec.Runtime {
+	appRuntime := getStandaloneApplicationRuntime(application)
+
+	switch appRuntime {
 	case string(arksv1.ArksRuntimeVLLM):
 		command := []string{"/bin/bash", "-c", "/bin/bash /vllm-workspace/examples/online_serving/multi-node-serving.sh worker --ray_address=$(LWS_LEADER_ADDRESS)"}
 		return command, nil
@@ -972,6 +1000,72 @@ func getServedModelName(application *arksv1.ArksApplication) string {
 		servedModelName = application.Spec.ServedModelName
 	}
 	return servedModelName
+}
+
+func (r *ArksApplicationReconciler) patchApplicationStatus(ctx context.Context, original, updated *arksv1.ArksApplication) error {
+	if apiequality.Semantic.DeepEqual(original.Status, updated.Status) {
+		return nil
+	}
+
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &arksv1.ArksApplication{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(updated), current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		current.Status = updated.Status
+		return r.Client.Status().Update(ctx, current)
+	})
+}
+
+func (r *ArksApplicationReconciler) removeFinalizerWithRetry(ctx context.Context, application *arksv1.ArksApplication) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &arksv1.ArksApplication{}
+		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(application), current); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+
+		if !hasFinalizer(current, arksApplicationControllerFinalizer) {
+			return nil
+		}
+
+		removeFinalizer(current, arksApplicationControllerFinalizer)
+		return r.Client.Update(ctx, current)
+	})
+}
+
+func getStandaloneApplicationRuntime(application *arksv1.ArksApplication) string {
+	if application.Spec.Runtime == "" {
+		return string(arksv1.ArksRuntimeDefault)
+	}
+	return application.Spec.Runtime
+}
+
+func (r *ArksApplicationReconciler) requestsForModel(ctx context.Context, obj client.Object) []ctrl.Request {
+	model, ok := obj.(*arksv1.ArksModel)
+	if !ok {
+		return nil
+	}
+
+	var apps arksv1.ArksApplicationList
+	if err := r.Client.List(ctx, &apps,
+		client.InNamespace(model.Namespace),
+		client.MatchingFields{arksApplicationModelField: model.Name},
+	); err != nil {
+		klog.Errorf("failed to list applications referencing model %s/%s: %v", model.Namespace, model.Name, err)
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(apps.Items))
+	for i := range apps.Items {
+		requests = append(requests, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      apps.Items[i].Name,
+				Namespace: apps.Items[i].Namespace,
+			},
+		})
+	}
+	return requests
 }
 
 func checkApplicationCondition(application *arksv1.ArksApplication, conditionType arksv1.ArksApplicationConditionType) bool {

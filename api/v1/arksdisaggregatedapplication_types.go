@@ -123,6 +123,13 @@ type ArksDisaggregatedApplicationStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The current phase of the application"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Router Ready",type="string",JSONPath=".status.router.readyReplicas",description="Ready router replicas"
+// +kubebuilder:printcolumn:name="Prefill Ready",type="string",JSONPath=".status.prefill.readyReplicas",description="Ready prefill replicas"
+// +kubebuilder:printcolumn:name="Decode Ready",type="string",JSONPath=".status.decode.readyReplicas",description="Ready decode replicas"
+// +kubebuilder:printcolumn:name="Model",type="string",JSONPath=".spec.model.name",description="The model being used",priority=1
+// +kubebuilder:resource:shortName=arkdapp
 
 // ArksDisaggregatedApplication is the Schema for the arksdisaggregatedapplications API.
 type ArksDisaggregatedApplication struct {
