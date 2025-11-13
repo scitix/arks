@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
+	rbgapi "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -59,6 +60,7 @@ func init() {
 	utilruntime.Must(arksv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 	utilruntime.Must(lwsapi.AddToScheme(scheme))
+	utilruntime.Must(rbgapi.AddToScheme(scheme))
 
 	utilruntime.Must(gatewayv1.AddToScheme(scheme))
 }

@@ -69,18 +69,20 @@ More docs:
 - kubectl configured to access your cluster
 
 ### Installation
+
+> **Note:** Arks requires LWS v0.7.0 and RBGS v0.5.0-alpha.4. Install LWS before RBGS.
+
 ```bash
+# Install dependencies (skip if already installed with correct version)
+kubectl apply --server-side -f https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/v0.7.0/manifests.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.5.0-alpha.4/deploy/kubectl/manifests.yaml
+
+# Install Arks
 git clone https://github.com/scitix/arks.git
 cd arks
-
-# Install envoy gateway, lws dependencies
-kubectl create -f dist/dependency.yaml
-
-# Install arks operator
-kubectl create -f dist/operator.yaml
-
-# Install arks gateway plugins
-kubectl create -f dist/gateway.yaml
+kubectl apply --server-side -f dist/operator.yaml
+kubectl apply --server-side -f dist/gateway.yaml
 ```
 
 verification:
@@ -194,7 +196,6 @@ Expected response
 kubectl delete -f examples/quickstart/quickstart.yaml --ignore-not-found=true
 kubectl delete -f dist/gateway.yaml
 kubectl delete -f dist/operator.yaml
-kubectl delete -f dist/dependency.yaml
 ```
 
 ## Build

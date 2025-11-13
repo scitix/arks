@@ -1,4 +1,0 @@
-kind: Kustomization
-
-resources:
-- https://github.com/kubernetes-sigs/lws/releases/download/v0.6.0/manifests.yaml
