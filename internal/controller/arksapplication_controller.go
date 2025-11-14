@@ -67,6 +67,7 @@ const arksApplicationModelField = "spec.model.name"
 // +kubebuilder:rbac:groups=arks.ai,resources=arksapplications/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arks.ai,resources=arksapplications/finalizers,verbs=update
 // +kubebuilder:rbac:groups=workloads.x-k8s.io,resources=rolebasedgroupsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=workloads.x-k8s.io,resources=rolebasedgroups,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="apps",resources=deployments,verbs=get;list;watch;create;update;patch;delete
