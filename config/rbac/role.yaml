@@ -112,6 +112,7 @@ rules:
 - apiGroups:
   - workloads.x-k8s.io
   resources:
+  - rolebasedgroups
   - rolebasedgroupsets
   verbs:
   - create
