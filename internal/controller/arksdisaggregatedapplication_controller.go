@@ -521,6 +521,7 @@ func (r *ArksDisaggregatedApplicationReconciler) SetupWithManager(mgr ctrl.Manag
 		Owns(&appsv1.Deployment{}).
 		Owns(&rbgv1alpha1.RoleBasedGroupSet{}).
 		Watches(&arksv1.ArksModel{}, handler.EnqueueRequestsFromMapFunc(r.requestsForModel)).
+		Watches(&rbgv1alpha1.RoleBasedGroup{}, handler.EnqueueRequestsFromMapFunc(r.requestsForRBG)).
 		Complete(r)
 }
 
@@ -1202,17 +1203,73 @@ func (r *ArksDisaggregatedApplicationReconciler) syncUnifiedStatus(ctx context.C
 		return fmt.Errorf("unified RBGS doesn't exist")
 	}
 
-	application.Status.Router.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Router.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Router.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
+	// List RBGs owned by this RBGS
+	rbgList := &rbgv1alpha1.RoleBasedGroupList{}
+	if err := r.Client.List(ctx, rbgList,
+		client.InNamespace(application.Namespace),
+		client.MatchingFields{"metadata.ownerReferences.name": unifiedRBGS.Name},
+	); err != nil {
+		// Fallback to manual filtering
+		if err := r.Client.List(ctx, rbgList, client.InNamespace(application.Namespace)); err != nil {
+			klog.Warningf("application %s/%s: failed to list RBGs: %v", application.Namespace, application.Name, err)
+			// Reset status
+			application.Status.Router = arksv1.ArksComponentStatus{}
+			application.Status.Prefill = arksv1.ArksComponentStatus{}
+			application.Status.Decode = arksv1.ArksComponentStatus{}
+			return nil
+		}
+		// Filter by owner
+		var filteredRBGs []rbgv1alpha1.RoleBasedGroup
+		for _, rbg := range rbgList.Items {
+			if metav1.GetControllerOf(&rbg) != nil && metav1.GetControllerOf(&rbg).Name == unifiedRBGS.Name {
+				filteredRBGs = append(filteredRBGs, rbg)
+			}
+		}
+		rbgList.Items = filteredRBGs
+	}
 
-	application.Status.Prefill.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Prefill.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Prefill.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
+	if len(rbgList.Items) == 0 {
+		klog.V(4).Infof("application %s/%s: no RBGs found for RBGS %s", application.Namespace, application.Name, unifiedRBGS.Name)
+		// Reset status
+		application.Status.Router = arksv1.ArksComponentStatus{}
+		application.Status.Prefill = arksv1.ArksComponentStatus{}
+		application.Status.Decode = arksv1.ArksComponentStatus{}
+		return nil
+	}
 
-	application.Status.Decode.Replicas = unifiedRBGS.Status.Replicas
-	application.Status.Decode.ReadyReplicas = unifiedRBGS.Status.ReadyReplicas
-	application.Status.Decode.UpdatedReplicas = unifiedRBGS.Status.ReadyReplicas
+	// Use first RBG for status
+	// TODO: When RBGS supports multiple replicas, aggregate status from all RBGs
+	rbg := &rbgList.Items[0]
+
+	// Sync status from RBG's RoleStatuses
+	for _, roleStatus := range rbg.Status.RoleStatuses {
+		switch roleStatus.Name {
+		case "scheduler":
+			application.Status.Router.Replicas = roleStatus.Replicas
+			application.Status.Router.ReadyReplicas = roleStatus.ReadyReplicas
+			// UpdatedReplicas from Deployment
+			routerDeploymentName := fmt.Sprintf("%s-scheduler", rbg.Name)
+			if routerDeployment, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, routerDeploymentName, metav1.GetOptions{}); err == nil {
+				application.Status.Router.UpdatedReplicas = routerDeployment.Status.UpdatedReplicas
+			}
+		case "prefill":
+			application.Status.Prefill.Replicas = roleStatus.Replicas
+			application.Status.Prefill.ReadyReplicas = roleStatus.ReadyReplicas
+			// UpdatedReplicas from LWS
+			prefillLWSName := fmt.Sprintf("%s-prefill", rbg.Name)
+			if prefillLWS, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, prefillLWSName, metav1.GetOptions{}); err == nil {
+				application.Status.Prefill.UpdatedReplicas = prefillLWS.Status.UpdatedReplicas
+			}
+		case "decode":
+			application.Status.Decode.Replicas = roleStatus.Replicas
+			application.Status.Decode.ReadyReplicas = roleStatus.ReadyReplicas
+			// UpdatedReplicas from LWS
+			decodeLWSName := fmt.Sprintf("%s-decode", rbg.Name)
+			if decodeLWS, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, decodeLWSName, metav1.GetOptions{}); err == nil {
+				application.Status.Decode.UpdatedReplicas = decodeLWS.Status.UpdatedReplicas
+			}
+		}
+	}
 
 	return nil
 }
@@ -1857,4 +1914,50 @@ func (r *ArksDisaggregatedApplicationReconciler) requestsForModel(ctx context.Co
 		})
 	}
 	return requests
+}
+
+// requestsForRBG maps RBG changes to Application reconcile requests
+func (r *ArksDisaggregatedApplicationReconciler) requestsForRBG(ctx context.Context, obj client.Object) []ctrl.Request {
+	rbg, ok := obj.(*rbgv1alpha1.RoleBasedGroup)
+	if !ok {
+		return nil
+	}
+
+	// Get RBGS from RBG's owner reference
+	rbgsRef := metav1.GetControllerOf(rbg)
+	if rbgsRef == nil || rbgsRef.Kind != "RoleBasedGroupSet" {
+		// RBG not owned by RBGS, skip
+		return nil
+	}
+
+	// Fetch the RBGS object
+	rbgs := &rbgv1alpha1.RoleBasedGroupSet{}
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      rbgsRef.Name,
+		Namespace: rbg.Namespace,
+	}, rbgs); err != nil {
+		if !apierrors.IsNotFound(err) {
+			klog.V(4).Infof("failed to get RBGS %s/%s for RBG %s: %v", rbg.Namespace, rbgsRef.Name, rbg.Name, err)
+		}
+		// RBGS not found means it's being deleted, RBG will be garbage collected
+		return nil
+	}
+
+	// Get Application from RBGS's owner reference
+	appRef := metav1.GetControllerOf(rbgs)
+	if appRef == nil || appRef.Kind != "ArksDisaggregatedApplication" {
+		// RBGS not owned by ArksDisaggregatedApplication, skip
+		return nil
+	}
+
+	klog.V(5).Infof("RBG %s/%s changed, triggering reconciliation for application %s", rbg.Namespace, rbg.Name, appRef.Name)
+
+	return []ctrl.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      appRef.Name,
+				Namespace: rbg.Namespace,
+			},
+		},
+	}
 }

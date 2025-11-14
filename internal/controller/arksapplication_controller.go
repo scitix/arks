@@ -144,6 +144,7 @@ func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&lwsapi.LeaderWorkerSet{}).
 		Owns(&rbgv1alpha1.RoleBasedGroupSet{}).
 		Watches(&arksv1.ArksModel{}, handler.EnqueueRequestsFromMapFunc(r.requestsForModel)).
+		Watches(&rbgv1alpha1.RoleBasedGroup{}, handler.EnqueueRequestsFromMapFunc(r.requestsForRBG)).
 		Complete(r)
 }
 
@@ -430,10 +431,56 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 			// RBGS not found - might be being created
 			klog.V(4).Infof("application %s/%s: underlying RBGS not found yet", application.Namespace, application.Name)
 		} else {
-			// Sync status from RBGS to ArksApplication
-			application.Status.Replicas = rbgs.Status.Replicas
-			application.Status.ReadyReplicas = rbgs.Status.ReadyReplicas
-			application.Status.UpdatedReplicas = rbgs.Status.ReadyReplicas
+			// List RBGs owned by this RBGS
+			rbgList := &rbgv1alpha1.RoleBasedGroupList{}
+			if err := r.Client.List(ctx, rbgList,
+				client.InNamespace(application.Namespace),
+				client.MatchingFields{"metadata.ownerReferences.name": rbgs.Name},
+			); err != nil {
+				// Fallback to manual filtering
+				if err := r.Client.List(ctx, rbgList, client.InNamespace(application.Namespace)); err != nil {
+					klog.Warningf("application %s/%s: failed to list RBGs: %v", application.Namespace, application.Name, err)
+					// Reset status
+					application.Status.Replicas = 0
+					application.Status.ReadyReplicas = 0
+					application.Status.UpdatedReplicas = 0
+				} else {
+					// Filter by owner
+					var filteredRBGs []rbgv1alpha1.RoleBasedGroup
+					for _, rbg := range rbgList.Items {
+						if metav1.GetControllerOf(&rbg) != nil && metav1.GetControllerOf(&rbg).Name == rbgs.Name {
+							filteredRBGs = append(filteredRBGs, rbg)
+						}
+					}
+					rbgList.Items = filteredRBGs
+				}
+			}
+
+			if len(rbgList.Items) == 0 {
+				klog.V(4).Infof("application %s/%s: no RBGs found for RBGS %s", application.Namespace, application.Name, rbgs.Name)
+				// Reset status
+				application.Status.Replicas = 0
+				application.Status.ReadyReplicas = 0
+				application.Status.UpdatedReplicas = 0
+			} else {
+				// Use first RBG for status
+				// TODO: When RBGS supports multiple replicas, aggregate status from all RBGs
+				rbg := &rbgList.Items[0]
+
+				// Sync status from RBG's RoleStatuses
+				for _, roleStatus := range rbg.Status.RoleStatuses {
+					if roleStatus.Name == "inference" {
+						application.Status.Replicas = roleStatus.Replicas
+						application.Status.ReadyReplicas = roleStatus.ReadyReplicas
+						// UpdatedReplicas from LWS
+						lwsName := fmt.Sprintf("%s-inference", rbg.Name)
+						if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, lwsName, metav1.GetOptions{}); err == nil {
+							application.Status.UpdatedReplicas = lws.Status.UpdatedReplicas
+						}
+						break
+					}
+				}
+			}
 		}
 	} else {
 		if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, application.Name, metav1.GetOptions{}); err != nil {
@@ -1066,6 +1113,52 @@ func (r *ArksApplicationReconciler) requestsForModel(ctx context.Context, obj cl
 		})
 	}
 	return requests
+}
+
+// requestsForRBG maps RBG changes to Application reconcile requests
+func (r *ArksApplicationReconciler) requestsForRBG(ctx context.Context, obj client.Object) []ctrl.Request {
+	rbg, ok := obj.(*rbgv1alpha1.RoleBasedGroup)
+	if !ok {
+		return nil
+	}
+
+	// Get RBGS from RBG's owner reference
+	rbgsRef := metav1.GetControllerOf(rbg)
+	if rbgsRef == nil || rbgsRef.Kind != "RoleBasedGroupSet" {
+		// RBG not owned by RBGS, skip
+		return nil
+	}
+
+	// Fetch the RBGS object
+	rbgs := &rbgv1alpha1.RoleBasedGroupSet{}
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      rbgsRef.Name,
+		Namespace: rbg.Namespace,
+	}, rbgs); err != nil {
+		if !apierrors.IsNotFound(err) {
+			klog.V(4).Infof("failed to get RBGS %s/%s for RBG %s: %v", rbg.Namespace, rbgsRef.Name, rbg.Name, err)
+		}
+		// RBGS not found means it's being deleted, RBG will be garbage collected
+		return nil
+	}
+
+	// Get Application from RBGS's owner reference
+	appRef := metav1.GetControllerOf(rbgs)
+	if appRef == nil || appRef.Kind != "ArksApplication" {
+		// RBGS not owned by ArksApplication, skip
+		return nil
+	}
+
+	klog.V(5).Infof("RBG %s/%s changed, triggering reconciliation for application %s", rbg.Namespace, rbg.Name, appRef.Name)
+
+	return []ctrl.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name:      appRef.Name,
+				Namespace: rbg.Namespace,
+			},
+		},
+	}
 }
 
 func checkApplicationCondition(application *arksv1.ArksApplication, conditionType arksv1.ArksApplicationConditionType) bool {

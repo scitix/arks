@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -29,11 +30,13 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -42,6 +45,7 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 	lwscli "sigs.k8s.io/lws/client-go/clientset/versioned"
 	rbgapi "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
+	rbgv1alpha1 "sigs.k8s.io/rbgs/api/workloads/v1alpha1"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -230,6 +234,22 @@ func main() {
 	lwsClient, err := lwscli.NewForConfig(config)
 	if err != nil {
 		klog.Errorf("failed to create lws client: %q", err)
+	}
+
+	// Index RBG by owner reference name (shared by both ArksApplication and ArksDisaggregatedApplication)
+	if err := mgr.GetFieldIndexer().IndexField(context.TODO(), &rbgv1alpha1.RoleBasedGroup{}, "metadata.ownerReferences.name", func(obj client.Object) []string {
+		rbg, ok := obj.(*rbgv1alpha1.RoleBasedGroup)
+		if !ok {
+			return nil
+		}
+		ownerRef := metav1.GetControllerOf(rbg)
+		if ownerRef == nil {
+			return nil
+		}
+		return []string{ownerRef.Name}
+	}); err != nil {
+		klog.Errorf("unable to create RBG owner index: %q", err)
+		os.Exit(1)
 	}
 
 	if err = (&controller.ArksApplicationReconciler{
