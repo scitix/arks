@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -1654,13 +1655,23 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCom
 		args = fmt.Sprintf("%s --service-discovery-namespace %s", args, application.Namespace)
 		args = fmt.Sprintf("%s --prefill-selector", args)
 		prefillLabels := r.generatePrefillWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
-		for key, value := range prefillLabels {
-			args = fmt.Sprintf("%s %s=%s", args, key, value)
+		prefillKeys := make([]string, 0, len(prefillLabels))
+		for key := range prefillLabels {
+			prefillKeys = append(prefillKeys, key)
+		}
+		sort.Strings(prefillKeys)
+		for _, key := range prefillKeys {
+			args = fmt.Sprintf("%s %s=%s", args, key, prefillLabels[key])
 		}
 		args = fmt.Sprintf("%s --decode-selector", args)
 		decodeLabels := r.generateDecodeWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
-		for key, value := range decodeLabels {
-			args = fmt.Sprintf("%s %s=%s", args, key, value)
+		decodeKeys := make([]string, 0, len(decodeLabels))
+		for key := range decodeLabels {
+			decodeKeys = append(decodeKeys, key)
+		}
+		sort.Strings(decodeKeys)
+		for _, key := range decodeKeys {
+			args = fmt.Sprintf("%s %s=%s", args, key, decodeLabels[key])
 		}
 		for _, arg := range application.Spec.Router.RouterArgs {
 			args = fmt.Sprintf("%s %s", args, arg)
