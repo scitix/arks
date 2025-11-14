@@ -135,21 +135,6 @@ func (r *ArksApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to index arksapplication by model: %w", err)
 	}
 
-	// Index RBG by owner to optimize List operations in status sync
-	if err := mgr.GetFieldIndexer().IndexField(ctx, &rbgv1alpha1.RoleBasedGroup{}, "metadata.ownerReferences.name", func(obj client.Object) []string {
-		rbg, ok := obj.(*rbgv1alpha1.RoleBasedGroup)
-		if !ok {
-			return nil
-		}
-		ownerRef := metav1.GetControllerOf(rbg)
-		if ownerRef == nil {
-			return nil
-		}
-		return []string{ownerRef.Name}
-	}); err != nil {
-		return fmt.Errorf("failed to index RBG by owner: %w", err)
-	}
-
 	return ctrl.NewControllerManagedBy(mgr).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: 30,
