@@ -6276,6 +6276,43 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              podGroupPolicy:
+                description: PodGroupPolicy represents a PodGroup configuration for
+                  gang-scheduling.
+                properties:
+                  kubeScheduling:
+                    description: KubeScheduling plugin from the Kubernetes scheduler-plugins
+                      for gang-scheduling.
+                    properties:
+                      scheduleTimeoutSeconds:
+                        default: 60
+                        description: |-
+                          Time threshold to schedule PodGroup for gang-scheduling.
+                          If the scheduling timeout is equal to 0, the default value is used.
+                          Defaults to 60 seconds.
+                        format: int32
+                        type: integer
+                    type: object
+                  volcanoScheduling:
+                    description: VolcanoSchedulingPodGroupPolicySource represents
+                      configuration for volcano podgroup scheduling plugin
+                    properties:
+                      priorityClassName:
+                        description: |-
+                          If specified, indicates the PodGroup's priority. "system-node-critical" and
+                          "system-cluster-critical" are two special keywords which indicate the
+                          highest priorities with the former being the highest priority. Any other
+                          name must be defined by creating a PriorityClass object with that name.
+                          If not specified, the PodGroup priority will be default or zero if there is no
+                          default.
+                        type: string
+                      queue:
+                        description: |-
+                          Queue defines the queue to allocate resource for PodGroup; if queue does not exist,
+                          the PodGroup will not be scheduled. Defaults to `default` Queue with the lowest weight.
+                        type: string
+                    type: object
+                type: object
               replicas:
                 description: |-
                   INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -12705,6 +12742,43 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              podGroupPolicy:
+                description: PodGroupPolicy represents a PodGroup configuration for
+                  gang-scheduling.
+                properties:
+                  kubeScheduling:
+                    description: KubeScheduling plugin from the Kubernetes scheduler-plugins
+                      for gang-scheduling.
+                    properties:
+                      scheduleTimeoutSeconds:
+                        default: 60
+                        description: |-
+                          Time threshold to schedule PodGroup for gang-scheduling.
+                          If the scheduling timeout is equal to 0, the default value is used.
+                          Defaults to 60 seconds.
+                        format: int32
+                        type: integer
+                    type: object
+                  volcanoScheduling:
+                    description: VolcanoSchedulingPodGroupPolicySource represents
+                      configuration for volcano podgroup scheduling plugin
+                    properties:
+                      priorityClassName:
+                        description: |-
+                          If specified, indicates the PodGroup's priority. "system-node-critical" and
+                          "system-cluster-critical" are two special keywords which indicate the
+                          highest priorities with the former being the highest priority. Any other
+                          name must be defined by creating a PriorityClass object with that name.
+                          If not specified, the PodGroup priority will be default or zero if there is no
+                          default.
+                        type: string
+                      queue:
+                        description: |-
+                          Queue defines the queue to allocate resource for PodGroup; if queue does not exist,
+                          the PodGroup will not be scheduled. Defaults to `default` Queue with the lowest weight.
+                        type: string
+                    type: object
+                type: object
               prefill:
                 description: Prefill
                 properties:
@@ -35101,7 +35175,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: scitixai/arks-operator:v0.1.9
+        image: scitixai/arks-operator:v0.2.0
         imagePullPolicy: Always
         livenessProbe:
           httpGet:
