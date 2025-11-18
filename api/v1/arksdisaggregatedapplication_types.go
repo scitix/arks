@@ -24,6 +24,48 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// PodGroupPolicy represents a PodGroup configuration for gang-scheduling.
+type PodGroupPolicy struct {
+	// Configuration for gang-scheduling using various plugins.
+	PodGroupPolicySource `json:",inline"`
+}
+
+// PodGroupPolicySource represents supported plugins for gang-scheduling.
+// Only one of its members may be specified.
+type PodGroupPolicySource struct {
+	// KubeScheduling plugin from the Kubernetes scheduler-plugins for gang-scheduling.
+	KubeScheduling *KubeSchedulingPodGroupPolicySource `json:"kubeScheduling,omitempty"`
+
+	VolcanoScheduling *VolcanoSchedulingPodGroupPolicySource `json:"volcanoScheduling,omitempty"`
+}
+
+// KubeSchedulingPodGroupPolicySource represents configuration for  Kubernetes scheduling plugin.
+// The number of min members in the PodGroupSpec is always equal to the number of rbg pods.
+type KubeSchedulingPodGroupPolicySource struct {
+	// Time threshold to schedule PodGroup for gang-scheduling.
+	// If the scheduling timeout is equal to 0, the default value is used.
+	// Defaults to 60 seconds.
+	// +kubebuilder:default=60
+	ScheduleTimeoutSeconds *int32 `json:"scheduleTimeoutSeconds,omitempty"`
+}
+
+// VolcanoSchedulingPodGroupPolicySource represents configuration for volcano podgroup scheduling plugin
+type VolcanoSchedulingPodGroupPolicySource struct {
+	// If specified, indicates the PodGroup's priority. "system-node-critical" and
+	// "system-cluster-critical" are two special keywords which indicate the
+	// highest priorities with the former being the highest priority. Any other
+	// name must be defined by creating a PriorityClass object with that name.
+	// If not specified, the PodGroup priority will be default or zero if there is no
+	// default.
+	// +optional
+	PriorityClassName string `json:"priorityClassName,omitempty"`
+
+	// Queue defines the queue to allocate resource for PodGroup; if queue does not exist,
+	// the PodGroup will not be scheduled. Defaults to `default` Queue with the lowest weight.
+	// +optional
+	Queue string `json:"queue,omitempty"`
+}
+
 type ArksDisaggregatedRouter struct {
 	// +optional
 	Replicas *int32 `json:"replicas"`
@@ -99,6 +141,10 @@ type ArksDisaggregatedApplicationSpec struct {
 
 	// Decode
 	Decode ArksDisaggregatedWorkload `json:"decode"`
+
+	// +optional
+	// +kubebuilder:validation:Immutable
+	PodGroupPolicy *PodGroupPolicy `json:"podGroupPolicy"`
 }
 
 type ArksComponentStatus struct {

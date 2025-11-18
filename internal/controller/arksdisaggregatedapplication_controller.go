@@ -1327,6 +1327,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateUnifiedRBGS(ctx context
 		Spec: rbgv1alpha1.RoleBasedGroupSetSpec{
 			Replicas: ptr.To(rbgsReplicas),
 			Template: rbgv1alpha1.RoleBasedGroupSpec{
+				PodGroupPolicy: convertToRbgPodGroupPolicy(application.Spec.PodGroupPolicy),
 				Roles: []rbgv1alpha1.RoleSpec{
 					schedulerRole,
 					prefillRole,

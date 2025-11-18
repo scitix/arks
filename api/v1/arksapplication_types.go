@@ -292,6 +292,10 @@ type ArksApplicationSpec struct {
 	RuntimeCommonArgs []string `json:"runtimeCommonArgs"`
 
 	InstanceSpec ArksInstanceSpec `json:"instanceSpec"`
+
+	// +optional
+	// +kubebuilder:validation:Immutable
+	PodGroupPolicy *PodGroupPolicy `json:"podGroupPolicy"`
 }
 
 // ArksApplicationStatus defines the observed state of ArksApplication.

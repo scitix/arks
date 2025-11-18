@@ -878,6 +878,7 @@ func generateRBGS(application *arksv1.ArksApplication, model *arksv1.ArksModel) 
 		Spec: rbgv1alpha1.RoleBasedGroupSetSpec{
 			Replicas: &rbgsReplicas,
 			Template: rbgv1alpha1.RoleBasedGroupSpec{
+				PodGroupPolicy: convertToRbgPodGroupPolicy(application.Spec.PodGroupPolicy),
 				Roles: []rbgv1alpha1.RoleSpec{
 					{
 						Name:          "inference",
