@@ -913,7 +913,7 @@ func (r *ArksDisaggregatedApplicationReconciler) buildSchedulerRole(ctx context.
 		Name:          "scheduler",
 		Replicas:      ptr.To(replicas),
 		RestartPolicy: rbgv1alpha1.RecreateRoleInstanceOnPodRestart,
-		Dependencies:  []string{"prefill", "decode"},
+		// Dependencies:  []string{"prefill", "decode"},
 		Workload: rbgv1alpha1.WorkloadSpec{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
