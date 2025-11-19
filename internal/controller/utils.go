@@ -15,7 +15,7 @@ func convertToRbgPodGroupPolicy(podGroupPolicy *arksv1.PodGroupPolicy) *rbgv1alp
 				ScheduleTimeoutSeconds: podGroupPolicy.KubeScheduling.ScheduleTimeoutSeconds,
 			}
 		}
-		if rbgPodGroupPolicy.VolcanoScheduling != nil {
+		if podGroupPolicy.VolcanoScheduling != nil {
 			rbgPodGroupPolicy.VolcanoScheduling = &rbgv1alpha1.VolcanoSchedulingPodGroupPolicySource{
 				PriorityClassName: podGroupPolicy.VolcanoScheduling.PriorityClassName,
 				Queue:             podGroupPolicy.VolcanoScheduling.Queue,
