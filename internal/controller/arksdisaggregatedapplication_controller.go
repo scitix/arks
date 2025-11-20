@@ -1071,41 +1071,41 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		Volumes:                       volumes,
 		Containers: []corev1.Container{
 			{
-				Name:         "main",
-				Image:        image,
-				Command:      leaderCommands,
-				Resources:    workload.InstanceSpec.Resources,
-				VolumeMounts: volumeMounts,
-				Env:          leaderEnvs,
-				Ports: []corev1.ContainerPort{
-					{
-						ContainerPort: 8080,
-					},
-				},
+				Name:            "main",
+				Image:           image,
+				Command:         workerCommands,
+				Resources:       workload.InstanceSpec.Resources,
+				VolumeMounts:    volumeMounts,
+				Env:             workerEnvs,
 				SecurityContext: workload.InstanceSpec.SecurityContext,
-				ReadinessProbe:  readinessProbe,
-				LivenessProbe:   workload.InstanceSpec.LivenessProbe,
-				StartupProbe:    workload.InstanceSpec.StartupProbe,
 			},
 		},
 	}
 
-	workerPatch := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{},
+	leaderPatch := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: workload.InstanceSpec.Annotations,
+			Labels:      generateLabels(application, arksv1.ArksWorkLoadRoleLeader),
+		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:      "main",
-					Image:     image,
-					Command:   workerCommands,
-					Env:       workerEnvs,
-					Resources: corev1.ResourceRequirements{},
+					Command:        leaderCommands,
+					Env:            leaderEnvs,
+					ReadinessProbe: readinessProbe,
+					LivenessProbe:  workload.InstanceSpec.LivenessProbe,
+					StartupProbe:   workload.InstanceSpec.StartupProbe,
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 8080,
+						},
+					},
 				},
 			},
 		},
 	}
 
-	workerPatchJSON, err := json.Marshal(workerPatch)
+	leaderPatchJSON, err := json.Marshal(leaderPatch)
 	if err != nil {
 		return rbgv1alpha1.RoleSpec{}, fmt.Errorf("failed to marshal worker patch: %v", err)
 	}
@@ -1120,8 +1120,8 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		},
 		LeaderWorkerSet: rbgv1alpha1.LeaderWorkerTemplate{
 			Size: ptr.To(int32(size)),
-			PatchWorkerTemplate: runtime.RawExtension{
-				Raw: workerPatchJSON,
+			PatchLeaderTemplate: runtime.RawExtension{
+				Raw: leaderPatchJSON,
 			},
 		},
 		RolloutStrategy: &rbgv1alpha1.RolloutStrategy{
@@ -1135,7 +1135,7 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: workload.InstanceSpec.Annotations,
-				Labels:      generateLabels(application, arksv1.ArksWorkLoadRoleLeader),
+				Labels:      generateLabels(application, arksv1.ArksWorkLoadRoleWorker),
 			},
 			Spec: podSpec,
 		},
