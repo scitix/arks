@@ -1090,6 +1090,7 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
+					Name:           "main",
 					Command:        leaderCommands,
 					Env:            leaderEnvs,
 					ReadinessProbe: readinessProbe,
