@@ -1019,22 +1019,6 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 		workerCommands = workload.WorkerCommandOverride
 	}
 
-	readinessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/health",
-				Port: intstr.FromInt(8080),
-			},
-		},
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      3,
-		FailureThreshold:    120,
-	}
-	if workload.InstanceSpec.ReadinessProbe != nil {
-		readinessProbe = workload.InstanceSpec.ReadinessProbe
-	}
-
 	podSpec := corev1.PodSpec{
 		TerminationGracePeriodSeconds: workload.InstanceSpec.TerminationGracePeriodSeconds,
 		ActiveDeadlineSeconds:         workload.InstanceSpec.ActiveDeadlineSeconds,
@@ -1093,7 +1077,7 @@ func (r *ArksDisaggregatedApplicationReconciler) buildWorkloadRole(application *
 					Name:           "main",
 					Command:        leaderCommands,
 					Env:            leaderEnvs,
-					ReadinessProbe: readinessProbe,
+					ReadinessProbe: workload.InstanceSpec.ReadinessProbe,
 					LivenessProbe:  workload.InstanceSpec.LivenessProbe,
 					StartupProbe:   workload.InstanceSpec.StartupProbe,
 					Ports: []corev1.ContainerPort{
@@ -1427,22 +1411,6 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 		workerCommands = workload.WorkerCommandOverride
 	}
 
-	readinessProbe := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/health",
-				Port: intstr.FromInt(8080),
-			},
-		},
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      3,
-		FailureThreshold:    120,
-	}
-	if workload.InstanceSpec.ReadinessProbe != nil {
-		readinessProbe = workload.InstanceSpec.ReadinessProbe
-	}
-
 	lws := &lwsapi.LeaderWorkerSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: application.Namespace,
@@ -1509,7 +1477,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregatedLws(applic
 									},
 								},
 								SecurityContext: workload.InstanceSpec.SecurityContext,
-								ReadinessProbe:  readinessProbe,
+								ReadinessProbe:  workload.InstanceSpec.ReadinessProbe,
 								LivenessProbe:   workload.InstanceSpec.LivenessProbe,
 								StartupProbe:    workload.InstanceSpec.StartupProbe,
 							},
