@@ -1617,6 +1617,16 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDecodeWorkloadLwsLabels
 	return podLabels
 }
 
+func (r *ArksDisaggregatedApplicationReconciler) generateWorkloadSelectorLabels(application *arksv1.ArksDisaggregatedApplication, disaggregatedRole string) map[string]string {
+	podLabels := map[string]string{}
+	podLabels[arksv1.ArksControllerKeyDisaggregationRole] = disaggregatedRole
+	podLabels[arksv1.ArksControllerKeyApplication] = application.Name
+	podLabels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
+	podLabels[arksv1.ArksControllerKeyWorkLoadRole] = arksv1.ArksWorkLoadRoleLeader
+
+	return podLabels
+}
+
 func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCommand(application *arksv1.ArksDisaggregatedApplication, port, metricPort int32) (string, error) {
 	var args string
 	switch getApplicationRuntime(application) {
@@ -1624,7 +1634,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCom
 		args = fmt.Sprintf("python3 -m sglang_router.launch_router --pd-disaggregation --service-discovery --service-discovery-port 8080 --host 0.0.0.0 --port %d", port)
 		args = fmt.Sprintf("%s --service-discovery-namespace %s", args, application.Namespace)
 		args = fmt.Sprintf("%s --prefill-selector", args)
-		prefillLabels := r.generatePrefillWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
+		prefillLabels := r.generateWorkloadSelectorLabels(application, "prefill")
 		prefillKeys := make([]string, 0, len(prefillLabels))
 		for key := range prefillLabels {
 			prefillKeys = append(prefillKeys, key)
@@ -1634,7 +1644,7 @@ func (r *ArksDisaggregatedApplicationReconciler) generateDisaggregationRouterCom
 			args = fmt.Sprintf("%s %s=%s", args, key, prefillLabels[key])
 		}
 		args = fmt.Sprintf("%s --decode-selector", args)
-		decodeLabels := r.generateDecodeWorkloadLwsLabels(application, arksv1.ArksWorkLoadRoleLeader)
+		decodeLabels := r.generateWorkloadSelectorLabels(application, "decode")
 		decodeKeys := make([]string, 0, len(decodeLabels))
 		for key := range decodeLabels {
 			decodeKeys = append(decodeKeys, key)
