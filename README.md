@@ -70,13 +70,13 @@ More docs:
 
 ### Installation
 
-> **Note:** Arks requires LWS v0.7.0 and RBGS v0.5.0-alpha.4. Install LWS before RBGS.
+> **Note:** Arks requires LWS v0.7.0 and RBG v0.6.0. Install LWS before RBG.
 
 ```bash
 # Install dependencies (skip if already installed with correct version)
 kubectl apply --server-side -f https://github.com/envoyproxy/gateway/releases/download/v1.2.8/install.yaml
 kubectl apply --server-side -f https://github.com/kubernetes-sigs/lws/releases/download/v0.7.0/manifests.yaml
-kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.5.0-alpha.4/deploy/kubectl/manifests.yaml
+kubectl apply --server-side -f https://raw.githubusercontent.com/sgl-project/rbg/v0.6.0/deploy/kubectl/manifests.yaml
 
 # Install Arks
 git clone https://github.com/scitix/arks.git
@@ -84,6 +84,10 @@ cd arks
 kubectl apply --server-side -f dist/operator.yaml
 kubectl apply --server-side -f dist/gateway.yaml
 ```
+
+Before cutting a release, confirm `dist/operator.yaml` points to the official
+operator image for that release. Development or test images such as `arks_pr:*`
+must not be published as release artifacts.
 
 verification:
 ``` bash
