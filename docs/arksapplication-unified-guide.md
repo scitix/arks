@@ -172,6 +172,64 @@ spec:
       resources: {limits: {cpu: "1", memory: 2Gi}, requests: {cpu: 500m, memory: 1Gi}}
 ```
 
+## Mode 4b — Disaggregated with Heterogeneous Prefill Groups
+
+When different request shapes want different engine configurations (for
+example one prefill tuned for fast TTFT and another for long contexts),
+replace `spec.prefill` with `spec.prefillGroups`. Each group is rendered as
+its own role (`prefill-<name>`) and LeaderWorkerSet with independent
+parallelism args, resources, and — optionally — its own model (for example a
+pre-sharded weight copy bound to that group's parallel layout). All groups
+serve behind the same router.
+
+```yaml
+spec:
+  mode: disaggregated
+  runtime: sglang
+  model: {name: glm5-fp8}
+  prefillGroups:
+    - name: fast                      # single-node tp8 + dp attention
+      model: {name: glm5-fp8-sharded-tp8dp8}   # optional per-group model
+      replicas: 1
+      size: 1
+      runtimeCommonArgs: [--tp, "8", --dp, "8", --enable-dp-attention]
+      instanceSpec:
+        resources: {limits: {nvidia.com/gpu: "8"}}
+    - name: long                      # two-node tp16 for long contexts
+      replicas: 1
+      size: 2
+      runtimeCommonArgs: [--tp, "16"]
+      instanceSpec:
+        resources: {limits: {nvidia.com/gpu: "8"}}
+  decode: {...}
+  router: {...}
+```
+
+Rules and behavior:
+- `spec.prefill` and `spec.prefillGroups` are mutually exclusive; in
+  disaggregated mode exactly one of them is required. Existing single-prefill
+  applications keep working unchanged (and keep their workload names, so an
+  upgrade does not recreate pods).
+- Group names must be DNS-1123 labels (max 24 chars) and unique.
+- Name budget: derived workload names follow `<app>-prefill-<group>` (plus
+  pod suffixes added by LWS), and Kubernetes caps DNS labels at 63
+  characters. With a long application name plus a long group name the
+  derived names can exceed the cap, so keep `len(app) + len(group)` roughly
+  under 40 characters.
+- Every group's pods carry the shared `arks.ai/role=prefill` label (so the
+  router's service discovery matches all groups as one pool) plus
+  `arks.ai/worker-group=<name>` for group-aware routing policies.
+- A group without `model` uses `spec.model`. A per-group model referencing an
+  existing PVC can be declared as an ArksModel without `spec.source` ("model
+  is in existing storage").
+- `status.prefillGroups[]` reports per-group replica counts;
+  `status.prefill` holds the sum across groups.
+- `spec.coordinationPolicy` is not yet supported together with
+  `prefillGroups`.
+
+See `config/samples/arks_v1_arksapplication_prefill_groups.yaml` for a
+complete 2P1D example.
+
 ## Custom Router (non-sglang runtimes, unified mode only)
 
 The default router image is the sglang router and is only valid when

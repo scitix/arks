@@ -72,6 +72,11 @@ const (
 	// New ArksApplication CRD uses this key.
 	ArksControllerKeyRole         = "arks.ai/role"
 	ArksControllerKeySglangRouter = "arks.ai/sglang-router"
+	// ArksControllerKeyWorkerGroup identifies which workload group
+	// (heterogeneous engine configuration, e.g. a prefill group) a pod
+	// belongs to within a role. Only set when the role is rendered from
+	// spec.prefillGroups; absent for single-workload roles.
+	ArksControllerKeyWorkerGroup = "arks.ai/worker-group"
 
 	ArksWorkLoadRoleLeader = "leader"
 	ArksWorkLoadRoleWorker = "worker"
@@ -117,6 +122,14 @@ type ArksRoleStatus struct {
 	Replicas        int32 `json:"replicas"`
 	ReadyReplicas   int32 `json:"readyReplicas"`
 	UpdatedReplicas int32 `json:"updatedReplicas"`
+}
+
+// ArksGroupStatus reports the status of one workload group (for example one
+// prefill group) within a role.
+type ArksGroupStatus struct {
+	// Name is the group name from spec (for example spec.prefillGroups[].name).
+	Name           string `json:"name"`
+	ArksRoleStatus `json:",inline"`
 }
 
 // ArksPodGroupPolicy is the ArksApplication-owned PodGroup configuration for
@@ -438,30 +451,57 @@ type ArksApplicationWorkload struct {
 	InstanceSpec ArksInstanceSpec `json:"instanceSpec,omitempty"`
 }
 
+// ArksApplicationWorkloadGroup is a named variant of a role workload. Groups
+// within one role deploy heterogeneous engine configurations (for example
+// different parallelism layouts) behind a single router. Each group is
+// rendered as its own underlying role/workload.
+type ArksApplicationWorkloadGroup struct {
+	// Name identifies the group. It is appended to the role name (for
+	// example "prefill-<name>") and exposed on pods via the
+	// arks.ai/worker-group label, so it must be a DNS-1123 label. It is
+	// kept short because it is embedded in workload resource names.
+	// +kubebuilder:validation:MaxLength=24
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Name string `json:"name"`
+
+	// Model optionally overrides spec.model for this group, for example a
+	// pre-sharded weight copy bound to this group's parallel layout. The
+	// referenced ArksModel must be in the same namespace. When unset the
+	// group uses spec.model.
+	// +optional
+	Model *corev1.LocalObjectReference `json:"model,omitempty"`
+
+	ArksApplicationWorkload `json:",inline"`
+}
+
 // ArksApplicationSpec defines the desired state of ArksApplication.
 //
 // CRD-level validation rules enforce the allowed role combinations per mode:
 //
-//   mode=unified       → requires spec.unified
-//                        forbids  spec.prefill, spec.decode
-//                        spec.router is optional
+//	mode=unified       → requires spec.unified
+//	                     forbids  spec.prefill, spec.decode
+//	                     spec.router is optional
 //
-//   mode=disaggregated → requires spec.prefill, spec.decode, spec.router
-//                        forbids  spec.unified
+//	mode=disaggregated → requires spec.decode, spec.router, and exactly one
+//	                     of spec.prefill (homogeneous) or spec.prefillGroups
+//	                     (heterogeneous engine configurations)
+//	                     forbids  spec.unified
 //
-//   spec.coordinationPolicy is only valid when mode=disaggregated.
+//	spec.coordinationPolicy is only valid when mode=disaggregated.
 //
 // Each rule reports an independent message so users get precise feedback
 // from `kubectl apply` admission failures.
 //
 // +kubebuilder:validation:XValidation:rule="self.mode != 'unified' || has(self.unified)",message="spec.unified is required when spec.mode is 'unified'"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'unified' || !has(self.prefill)",message="spec.prefill must not be set when spec.mode is 'unified'"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'unified' || !has(self.prefillGroups)",message="spec.prefillGroups must not be set when spec.mode is 'unified'"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'unified' || !has(self.decode)",message="spec.decode must not be set when spec.mode is 'unified'"
-// +kubebuilder:validation:XValidation:rule="self.mode != 'disaggregated' || has(self.prefill)",message="spec.prefill is required when spec.mode is 'disaggregated'"
+// +kubebuilder:validation:XValidation:rule="self.mode != 'disaggregated' || (has(self.prefill) != has(self.prefillGroups))",message="exactly one of spec.prefill or spec.prefillGroups is required when spec.mode is 'disaggregated'"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'disaggregated' || has(self.decode)",message="spec.decode is required when spec.mode is 'disaggregated'"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'disaggregated' || has(self.router)",message="spec.router is required when spec.mode is 'disaggregated'"
 // +kubebuilder:validation:XValidation:rule="self.mode != 'disaggregated' || !has(self.unified)",message="spec.unified must not be set when spec.mode is 'disaggregated'"
 // +kubebuilder:validation:XValidation:rule="!has(self.coordinationPolicy) || self.mode == 'disaggregated'",message="spec.coordinationPolicy is only valid when spec.mode is 'disaggregated'"
+// +kubebuilder:validation:XValidation:rule="!has(self.coordinationPolicy) || !has(self.prefillGroups)",message="spec.coordinationPolicy is not supported together with spec.prefillGroups"
 type ArksApplicationSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -514,9 +554,22 @@ type ArksApplicationSpec struct {
 	// +optional
 	Unified *ArksApplicationWorkload `json:"unified,omitempty"`
 
-	// Prefill defines the prefill role. Required in disaggregated mode.
+	// Prefill defines the prefill role. In disaggregated mode exactly one of
+	// Prefill or PrefillGroups is required.
 	// +optional
 	Prefill *ArksApplicationWorkload `json:"prefill,omitempty"`
+
+	// PrefillGroups defines heterogeneous prefill groups. Each group is
+	// rendered as its own role (named "prefill-<group>") with an independent
+	// engine configuration and, optionally, its own model. All groups serve
+	// behind the same router. In disaggregated mode exactly one of Prefill
+	// or PrefillGroups is required. Mutually exclusive with Prefill.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	PrefillGroups []ArksApplicationWorkloadGroup `json:"prefillGroups,omitempty"`
 
 	// Decode defines the decode role. Required in disaggregated mode.
 	// +optional
@@ -551,8 +604,16 @@ type ArksApplicationStatus struct {
 	Unified ArksRoleStatus `json:"unified,omitempty"`
 	// +optional
 	Router ArksRoleStatus `json:"router,omitempty"`
+	// Prefill aggregates replica counts across all prefill workloads. With
+	// spec.prefillGroups it is the sum over every group; per-group numbers
+	// are reported in PrefillGroups.
 	// +optional
 	Prefill ArksRoleStatus `json:"prefill,omitempty"`
+	// PrefillGroups reports per-group status when spec.prefillGroups is used.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	PrefillGroups []ArksGroupStatus `json:"prefillGroups,omitempty"`
 	// +optional
 	Decode ArksRoleStatus `json:"decode,omitempty"`
 

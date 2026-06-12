@@ -20,7 +20,7 @@ func TestGenerateRBGSUnifiedWithoutRouter(t *testing.T) {
 	application := newTestArksApplication()
 	model := newTestArksModel()
 
-	rbgs, err := reconciler.generateRBGS(context.Background(), application, model)
+	rbgs, err := reconciler.generateRBGS(context.Background(), application, testModelsFor(application, model))
 	if err != nil {
 		t.Fatalf("generateRBGS returned error: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestGenerateRBGSUnifiedWithRouter(t *testing.T) {
 	}
 	model := newTestArksModel()
 
-	rbgs, err := reconciler.generateRBGS(context.Background(), application, model)
+	rbgs, err := reconciler.generateRBGS(context.Background(), application, testModelsFor(application, model))
 	if err != nil {
 		t.Fatalf("generateRBGS returned error: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestGenerateRBGSDisaggregatedWithCoordination(t *testing.T) {
 	}
 	model := newTestArksModel()
 
-	rbgs, err := reconciler.generateRBGS(context.Background(), application, model)
+	rbgs, err := reconciler.generateRBGS(context.Background(), application, testModelsFor(application, model))
 	if err != nil {
 		t.Fatalf("generateRBGS returned error: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestIsArksApplicationReady(t *testing.T) {
 				Status: arksv1.ArksApplicationStatus{
 					Mode:          arksv1.ArksApplicationModeUnified,
 					TrafficTarget: arksv1.ArksApplicationTrafficTargetRouter,
-					Unified:     arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
+					Unified:       arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
 					Router:        arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
 					Conditions: []arksv1.ArksApplicationCondition{
 						{Type: arksv1.ArksApplicationTrafficTargetReady, Status: corev1.ConditionTrue},
@@ -160,7 +160,7 @@ func TestIsArksApplicationReady(t *testing.T) {
 				Status: arksv1.ArksApplicationStatus{
 					Mode:          arksv1.ArksApplicationModeUnified,
 					TrafficTarget: arksv1.ArksApplicationTrafficTargetPending,
-					Unified:     arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
+					Unified:       arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
 				},
 			},
 			want: false,
@@ -172,9 +172,9 @@ func TestIsArksApplicationReady(t *testing.T) {
 					Router: &arksv1.ArksApplicationRouter{},
 				},
 				Status: arksv1.ArksApplicationStatus{
-					Mode:      arksv1.ArksApplicationModeUnified,
+					Mode:    arksv1.ArksApplicationModeUnified,
 					Unified: arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 1},
-					Router:    arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 0},
+					Router:  arksv1.ArksRoleStatus{Replicas: 1, ReadyReplicas: 0},
 				},
 			},
 			want: false,
@@ -473,6 +473,7 @@ func TestBuildRouterRoleARKSRouterCommandEnv(t *testing.T) {
 //     so binary-style commandOverride can receive CLI flags via routerArgs
 //   - ARKS_ROUTER_COMMAND env is still injected with the default sglang
 //     router command for composability
+//
 // And the default sglang path (no commandOverride) does NOT pass routerArgs
 // via Container.Args because generateRouterCommand already appended them
 // inside the generated command string.
@@ -664,4 +665,10 @@ func newTestArksModel() *arksv1.ArksModel {
 
 func ptrInt32(v int32) *int32 {
 	return &v
+}
+
+// testModelsFor wraps the single default model into the resolved-models map
+// that generateRBGS expects, keyed by the application's model reference.
+func testModelsFor(application *arksv1.ArksApplication, model *arksv1.ArksModel) map[string]*arksv1.ArksModel {
+	return map[string]*arksv1.ArksModel{application.Spec.Model.Name: model}
 }

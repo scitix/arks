@@ -1,0 +1,101 @@
+# Heterogeneous prefill groups (2P1D): two prefill groups with different
+# parallelism layouts serve behind one router; requests are dispatched by the
+# router across both groups. Each group may also reference its own ArksModel
+# (e.g. a pre-sharded weight copy bound to that group's parallel layout).
+#
+# The standard model, downloaded by the Arks model loader:
+apiVersion: arks.ai/v1
+kind: ArksModel
+metadata:
+  name: glm5-fp8
+spec:
+  model: zai-org/GLM-5.1-FP8
+  storage:
+    pvc:
+      name: glm5-fp8-pvc
+---
+# A pre-sharded weight copy that already lives on an existing PVC: no
+# spec.source means "the model is in existing storage, skip loading".
+apiVersion: arks.ai/v1
+kind: ArksModel
+metadata:
+  name: glm5-fp8-sharded-tp8dp8
+spec:
+  model: zai-org/GLM5.1-FP8-sharded-tp8dp8
+  storage:
+    pvc:
+      name: glm5-fp8-sharded-pvc
+---
+apiVersion: arks.ai/v1
+kind: ArksApplication
+metadata:
+  labels:
+    app.kubernetes.io/name: arks-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: app-glm5-pd
+spec:
+  mode: disaggregated
+  runtime: sglang
+  servedModelName: glm-5-fp8
+  model:
+    name: glm5-fp8
+  prefillGroups:
+    # Single-node prefill tuned for fast TTFT: tp8 + dp attention, loading a
+    # pre-sharded weight copy via this group's model override.
+    - name: fast
+      model:
+        name: glm5-fp8-sharded-tp8dp8
+      replicas: 1
+      size: 1
+      runtimeCommonArgs:
+        - --tp
+        - "8"
+        - --dp
+        - "8"
+        - --enable-dp-attention
+        - --load-format
+        - dynamic_sharded_state
+        - --disaggregation-transfer-backend
+        - mooncake
+      instanceSpec:
+        resources:
+          limits:
+            nvidia.com/gpu: "8"
+          requests:
+            nvidia.com/gpu: "8"
+    # Two-node tp16 prefill for long contexts, using the default spec.model.
+    - name: long
+      replicas: 1
+      size: 2
+      runtimeCommonArgs:
+        - --tp
+        - "16"
+        - --context-length
+        - "202752"
+        - --disaggregation-transfer-backend
+        - mooncake
+      instanceSpec:
+        resources:
+          limits:
+            nvidia.com/gpu: "8"
+          requests:
+            nvidia.com/gpu: "8"
+  decode:
+    replicas: 1
+    size: 2
+    runtimeCommonArgs:
+      - --tp-size
+      - "16"
+      - --enable-dp-attention
+      - --dp-size
+      - "8"
+      - --disaggregation-transfer-backend
+      - mooncake
+    instanceSpec:
+      resources:
+        limits:
+          nvidia.com/gpu: "8"
+        requests:
+          nvidia.com/gpu: "8"
+  router:
+    replicas: 1

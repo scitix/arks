@@ -195,33 +195,39 @@ func (r *ArksApplicationReconciler) reconcile(ctx context.Context, application *
 		updateApplicationCondition(application, arksv1.ArksApplicationPrecheck, corev1.ConditionTrue, "PrecheckPass", "The application passed the pre-checking")
 	}
 
-	model := &arksv1.ArksModel{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Namespace: application.Namespace, Name: application.Spec.Model.Name}, model, &client.GetOptions{
-		Raw: &metav1.GetOptions{ResourceVersion: ""},
-	}); err != nil {
-		if apierrors.IsNotFound(err) {
-			application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-			updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionFalse, "ModelNotExist", "The referenced model doesn't exist")
-			return ctrl.Result{}, nil
+	models := map[string]*arksv1.ArksModel{}
+	for _, modelName := range referencedModelNames(application) {
+		model := &arksv1.ArksModel{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Namespace: application.Namespace, Name: modelName}, model, &client.GetOptions{
+			Raw: &metav1.GetOptions{ResourceVersion: ""},
+		}); err != nil {
+			if apierrors.IsNotFound(err) {
+				application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
+				updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionFalse, "ModelNotExist", fmt.Sprintf("The referenced model %q doesn't exist", modelName))
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{}, err
+		models[modelName] = model
 	}
 
 	if !checkApplicationCondition(application, arksv1.ArksApplicationLoaded) {
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseLoading)
-		switch model.Status.Phase {
-		case string(arksv1.ArksModelPhaseFailed):
-			application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
-			updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionFalse, "ModelLoadFailed", "Failed to load the referenced model")
-			return ctrl.Result{}, nil
-		case string(arksv1.ArksModelReady):
-			updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionTrue, "ModelLoadSucceeded", "The referenced model is loaded")
-		default:
-			return ctrl.Result{}, nil
+		for _, modelName := range referencedModelNames(application) {
+			switch models[modelName].Status.Phase {
+			case string(arksv1.ArksModelPhaseFailed):
+				application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
+				updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionFalse, "ModelLoadFailed", fmt.Sprintf("Failed to load the referenced model %q", modelName))
+				return ctrl.Result{}, nil
+			case string(arksv1.ArksModelReady):
+			default:
+				return ctrl.Result{}, nil
+			}
 		}
+		updateApplicationCondition(application, arksv1.ArksApplicationLoaded, corev1.ConditionTrue, "ModelLoadSucceeded", "All referenced models are loaded")
 	}
 
-	if err := r.reconcileRBGS(ctx, application, model); err != nil {
+	if err := r.reconcileRBGS(ctx, application, models); err != nil {
 		application.Status.Phase = string(arksv1.ArksApplicationPhaseFailed)
 		updateApplicationCondition(application, arksv1.ArksApplicationReady, corev1.ConditionFalse, "UnderlayReconcileFailed", fmt.Sprintf("Failed to reconcile RBGS: %v", err))
 		return ctrl.Result{}, fmt.Errorf("failed to reconcile RBGS: %w", err)
@@ -247,8 +253,23 @@ func (r *ArksApplicationReconciler) validate(application *arksv1.ArksApplication
 			return fmt.Errorf("unified spec is required when mode=unified")
 		}
 	case arksv1.ArksApplicationModeDisaggregated:
-		if application.Spec.Prefill == nil || application.Spec.Decode == nil {
-			return fmt.Errorf("prefill and decode specs are required when mode=disaggregated")
+		hasPrefill := application.Spec.Prefill != nil
+		hasPrefillGroups := len(application.Spec.PrefillGroups) > 0
+		if hasPrefill == hasPrefillGroups {
+			return fmt.Errorf("exactly one of prefill or prefillGroups is required when mode=disaggregated")
+		}
+		// The CRD enforces uniqueness via listMapKey=name; re-check here so
+		// programmatic paths that bypass API validation cannot generate
+		// duplicate RBG roles.
+		groupNames := map[string]bool{}
+		for _, group := range application.Spec.PrefillGroups {
+			if groupNames[group.Name] {
+				return fmt.Errorf("duplicate prefill group name %q", group.Name)
+			}
+			groupNames[group.Name] = true
+		}
+		if application.Spec.Decode == nil {
+			return fmt.Errorf("decode spec is required when mode=disaggregated")
 		}
 		if application.Spec.Router == nil {
 			return fmt.Errorf("router spec is required when mode=disaggregated")
@@ -300,10 +321,28 @@ func (r *ArksApplicationReconciler) instanceSpecsForValidation(application *arks
 	if application.Spec.Prefill != nil {
 		specs = append(specs, &application.Spec.Prefill.InstanceSpec)
 	}
+	for i := range application.Spec.PrefillGroups {
+		specs = append(specs, &application.Spec.PrefillGroups[i].InstanceSpec)
+	}
 	if application.Spec.Decode != nil {
 		specs = append(specs, &application.Spec.Decode.InstanceSpec)
 	}
 	return specs
+}
+
+// referencedModelNames returns the names of every ArksModel the application
+// references: spec.model plus any per-group overrides, deduplicated, in a
+// deterministic order (spec.model first, then group order).
+func referencedModelNames(application *arksv1.ArksApplication) []string {
+	names := []string{application.Spec.Model.Name}
+	seen := map[string]bool{application.Spec.Model.Name: true}
+	for _, group := range application.Spec.PrefillGroups {
+		if group.Model != nil && !seen[group.Model.Name] {
+			names = append(names, group.Model.Name)
+			seen[group.Model.Name] = true
+		}
+	}
+	return names
 }
 
 func validateReservedModelPaths(instanceSpec *arksv1.ArksInstanceSpec) error {
@@ -320,7 +359,7 @@ func validateReservedModelPaths(instanceSpec *arksv1.ArksInstanceSpec) error {
 	return nil
 }
 
-func (r *ArksApplicationReconciler) reconcileRBGS(ctx context.Context, application *arksv1.ArksApplication, model *arksv1.ArksModel) error {
+func (r *ArksApplicationReconciler) reconcileRBGS(ctx context.Context, application *arksv1.ArksApplication, models map[string]*arksv1.ArksModel) error {
 	rbgs := &rbgv1alpha1.RoleBasedGroupSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      application.Name,
@@ -329,7 +368,7 @@ func (r *ArksApplicationReconciler) reconcileRBGS(ctx context.Context, applicati
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, r.Client, rbgs, func() error {
-		desired, err := r.generateRBGS(ctx, application, model)
+		desired, err := r.generateRBGS(ctx, application, models)
 		if err != nil {
 			return err
 		}
@@ -349,12 +388,16 @@ func (r *ArksApplicationReconciler) reconcileRBGS(ctx context.Context, applicati
 	return nil
 }
 
-func (r *ArksApplicationReconciler) generateRBGS(ctx context.Context, application *arksv1.ArksApplication, model *arksv1.ArksModel) (*rbgv1alpha1.RoleBasedGroupSet, error) {
+func (r *ArksApplicationReconciler) generateRBGS(ctx context.Context, application *arksv1.ArksApplication, models map[string]*arksv1.ArksModel) (*rbgv1alpha1.RoleBasedGroupSet, error) {
 	var roles []rbgv1alpha1.RoleSpec
+	defaultModel := models[application.Spec.Model.Name]
+	if defaultModel == nil {
+		return nil, fmt.Errorf("referenced model %q is not resolved", application.Spec.Model.Name)
+	}
 
 	switch getApplicationMode(application) {
 	case arksv1.ArksApplicationModeUnified:
-		unifiedRole, err := r.buildUnifiedRole(application, model)
+		unifiedRole, err := r.buildUnifiedRole(application, defaultModel)
 		if err != nil {
 			return nil, fmt.Errorf("failed to build unified role: %w", err)
 		}
@@ -371,15 +414,18 @@ func (r *ArksApplicationReconciler) generateRBGS(ctx context.Context, applicatio
 		if err != nil {
 			return nil, fmt.Errorf("failed to build router role: %w", err)
 		}
-		prefillRole, err := r.buildDisaggregatedRole(application, model, "prefill")
+		roles = append(roles, routerRole)
+		disaggRoles, err := resolveDisaggregatedRoles(application, models)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build prefill role: %w", err)
+			return nil, err
 		}
-		decodeRole, err := r.buildDisaggregatedRole(application, model, "decode")
-		if err != nil {
-			return nil, fmt.Errorf("failed to build decode role: %w", err)
+		for _, disaggRole := range disaggRoles {
+			roleSpec, err := r.buildDisaggregatedRole(application, disaggRole)
+			if err != nil {
+				return nil, fmt.Errorf("failed to build %s role: %w", disaggRole.roleName, err)
+			}
+			roles = append(roles, roleSpec)
 		}
-		roles = append(roles, routerRole, prefillRole, decodeRole)
 	default:
 		return nil, fmt.Errorf("unsupported mode: %s", getApplicationMode(application))
 	}
@@ -709,27 +755,81 @@ func (r *ArksApplicationReconciler) buildRouterRole(ctx context.Context, applica
 	}, nil
 }
 
-func (r *ArksApplicationReconciler) buildDisaggregatedRole(application *arksv1.ArksApplication, model *arksv1.ArksModel, roleName string) (rbgv1alpha1.RoleSpec, error) {
+// disaggregatedRole carries the resolved identity and configuration of one
+// disaggregated role: decode, the legacy single prefill, or one prefill group.
+type disaggregatedRole struct {
+	// kind is "prefill" or "decode": it selects the engine disaggregation
+	// mode and the arks.ai/role label, shared by every group of the role.
+	kind string
+	// roleName is the RBG role name ("prefill", "prefill-<group>", "decode").
+	roleName string
+	// group is the prefill group name; empty for decode and the legacy
+	// single prefill.
+	group    string
+	workload *arksv1.ArksApplicationWorkload
+	model    *arksv1.ArksModel
+}
+
+// resolveDisaggregatedRoles normalizes spec.prefill / spec.prefillGroups plus
+// spec.decode into a flat role list. The legacy single prefill keeps the role
+// name "prefill" so that existing deployments do not see a workload rename.
+func resolveDisaggregatedRoles(application *arksv1.ArksApplication, models map[string]*arksv1.ArksModel) ([]disaggregatedRole, error) {
+	var roles []disaggregatedRole
+	if application.Spec.Prefill != nil {
+		roles = append(roles, disaggregatedRole{
+			kind:     "prefill",
+			roleName: "prefill",
+			workload: application.Spec.Prefill,
+			model:    models[application.Spec.Model.Name],
+		})
+	}
+	for i := range application.Spec.PrefillGroups {
+		group := &application.Spec.PrefillGroups[i]
+		modelName := application.Spec.Model.Name
+		if group.Model != nil {
+			modelName = group.Model.Name
+		}
+		model := models[modelName]
+		if model == nil {
+			return nil, fmt.Errorf("referenced model %q of prefill group %q is not resolved", modelName, group.Name)
+		}
+		roles = append(roles, disaggregatedRole{
+			kind:     "prefill",
+			roleName: "prefill-" + group.Name,
+			group:    group.Name,
+			workload: &group.ArksApplicationWorkload,
+			model:    model,
+		})
+	}
+	roles = append(roles, disaggregatedRole{
+		kind:     "decode",
+		roleName: "decode",
+		workload: application.Spec.Decode,
+		model:    models[application.Spec.Model.Name],
+	})
+	return roles, nil
+}
+
+func (r *ArksApplicationReconciler) buildDisaggregatedRole(application *arksv1.ArksApplication, role disaggregatedRole) (rbgv1alpha1.RoleSpec, error) {
 	image, err := getApplicationRuntimeImage(application)
 	if err != nil {
 		return rbgv1alpha1.RoleSpec{}, err
 	}
 
-	workload := application.Spec.Prefill
-	labelsFn := generatePrefillLabels
-	if roleName == "decode" {
-		workload = application.Spec.Decode
-		labelsFn = generateDecodeLabels
-	}
+	workload := role.workload
+	model := role.model
 	if workload == nil {
-		return rbgv1alpha1.RoleSpec{}, fmt.Errorf("%s workload is required", roleName)
+		return rbgv1alpha1.RoleSpec{}, fmt.Errorf("%s workload is required", role.roleName)
+	}
+	if model == nil {
+		return rbgv1alpha1.RoleSpec{}, fmt.Errorf("model of %s role is not resolved", role.roleName)
 	}
 
-	leaderCommand, err := r.generateDisaggregationLeaderCommand(application, model, roleName)
+	leaderCommand, err := r.generateDisaggregationLeaderCommand(application, model, role.kind, workload)
 	if err != nil {
 		return rbgv1alpha1.RoleSpec{}, err
 	}
-	workerCommand, err := r.generateDisaggregationWorkerCommand(application, model, roleName)
+	workerCommand, err := r.generateDisaggregationWorkerCommand(application, model, role.kind, workload)
 	if err != nil {
 		return rbgv1alpha1.RoleSpec{}, err
 	}
@@ -773,7 +873,7 @@ func (r *ArksApplicationReconciler) buildDisaggregatedRole(application *arksv1.A
 	leaderPatch, err := json.Marshal(corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: workload.InstanceSpec.Annotations,
-			Labels:      labelsFn(application, arksv1.ArksWorkLoadRoleLeader),
+			Labels:      generateDisaggregatedPodLabels(application, role, arksv1.ArksWorkLoadRoleLeader),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -794,7 +894,7 @@ func (r *ArksApplicationReconciler) buildDisaggregatedRole(application *arksv1.A
 	}
 
 	return rbgv1alpha1.RoleSpec{
-		Name:          roleName,
+		Name:          role.roleName,
 		Replicas:      ptr.To(replicas),
 		RestartPolicy: rbgv1alpha1.RecreateRoleInstanceOnPodRestart,
 		Workload: rbgv1alpha1.WorkloadSpec{
@@ -819,7 +919,7 @@ func (r *ArksApplicationReconciler) buildDisaggregatedRole(application *arksv1.A
 			Template: &corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: workload.InstanceSpec.Annotations,
-					Labels:      labelsFn(application, arksv1.ArksWorkLoadRoleWorker),
+					Labels:      generateDisaggregatedPodLabels(application, role, arksv1.ArksWorkLoadRoleWorker),
 				},
 				Spec: podSpec,
 			},
@@ -1016,10 +1116,14 @@ func (r *ArksApplicationReconciler) syncApplicationStatus(ctx context.Context, a
 	application.Status.Unified = arksv1.ArksRoleStatus{}
 	application.Status.Router = arksv1.ArksRoleStatus{}
 	application.Status.Prefill = arksv1.ArksRoleStatus{}
+	application.Status.PrefillGroups = nil
 	application.Status.Decode = arksv1.ArksRoleStatus{}
 	application.Status.Replicas = 0
 	application.Status.ReadyReplicas = 0
 	application.Status.UpdatedReplicas = 0
+	for _, group := range application.Spec.PrefillGroups {
+		application.Status.PrefillGroups = append(application.Status.PrefillGroups, arksv1.ArksGroupStatus{Name: group.Name})
+	}
 
 	rbgs := &rbgv1alpha1.RoleBasedGroupSet{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Name: application.Name, Namespace: application.Namespace}, rbgs); err != nil {
@@ -1059,17 +1163,34 @@ func (r *ArksApplicationReconciler) syncApplicationStatus(ctx context.Context, a
 			if deploy, err := r.KubeClient.AppsV1().Deployments(application.Namespace).Get(ctx, fmt.Sprintf("%s-router", rbg.Name), metav1.GetOptions{}); err == nil {
 				application.Status.Router.UpdatedReplicas = deploy.Status.UpdatedReplicas
 			}
-		case "prefill":
-			application.Status.Prefill.Replicas = roleStatus.Replicas
-			application.Status.Prefill.ReadyReplicas = roleStatus.ReadyReplicas
-			if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, fmt.Sprintf("%s-prefill", rbg.Name), metav1.GetOptions{}); err == nil {
-				application.Status.Prefill.UpdatedReplicas = lws.Status.UpdatedReplicas
-			}
 		case "decode":
 			application.Status.Decode.Replicas = roleStatus.Replicas
 			application.Status.Decode.ReadyReplicas = roleStatus.ReadyReplicas
 			if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, fmt.Sprintf("%s-decode", rbg.Name), metav1.GetOptions{}); err == nil {
 				application.Status.Decode.UpdatedReplicas = lws.Status.UpdatedReplicas
+			}
+		default:
+			// "prefill" (the legacy single role) or "prefill-<group>".
+			if roleStatus.Name != "prefill" && !strings.HasPrefix(roleStatus.Name, "prefill-") {
+				continue
+			}
+			var updatedReplicas int32
+			if lws, err := r.LWSClient.LeaderworkersetV1().LeaderWorkerSets(application.Namespace).Get(ctx, fmt.Sprintf("%s-%s", rbg.Name, roleStatus.Name), metav1.GetOptions{}); err == nil {
+				updatedReplicas = lws.Status.UpdatedReplicas
+			}
+			// status.prefill aggregates every prefill workload (legacy single
+			// role and all groups alike).
+			application.Status.Prefill.Replicas += roleStatus.Replicas
+			application.Status.Prefill.ReadyReplicas += roleStatus.ReadyReplicas
+			application.Status.Prefill.UpdatedReplicas += updatedReplicas
+			groupName := strings.TrimPrefix(roleStatus.Name, "prefill-")
+			for i := range application.Status.PrefillGroups {
+				if application.Status.PrefillGroups[i].Name == groupName {
+					application.Status.PrefillGroups[i].Replicas = roleStatus.Replicas
+					application.Status.PrefillGroups[i].ReadyReplicas = roleStatus.ReadyReplicas
+					application.Status.PrefillGroups[i].UpdatedReplicas = updatedReplicas
+					break
+				}
 			}
 		}
 	}
@@ -1252,31 +1373,25 @@ func generateRouterLabels(application *arksv1.ArksApplication) map[string]string
 	return labels
 }
 
-func generatePrefillLabels(application *arksv1.ArksApplication, role string) map[string]string {
+// generateDisaggregatedPodLabels builds the pod labels of one disaggregated
+// role. The arks.ai/role and arks.ai/model labels are shared by every prefill
+// group (the router's selector matches on them; the model label always
+// carries spec.model even when a group overrides its model); the group is
+// exposed separately via arks.ai/worker-group.
+func generateDisaggregatedPodLabels(application *arksv1.ArksApplication, role disaggregatedRole, workloadRole string) map[string]string {
 	labels := map[string]string{}
-	if application.Spec.Prefill != nil {
-		for key, value := range application.Spec.Prefill.InstanceSpec.Labels {
+	if role.workload != nil {
+		for key, value := range role.workload.InstanceSpec.Labels {
 			labels[key] = value
 		}
 	}
 	labels[arksv1.ArksControllerKeyApplication] = application.Name
 	labels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
-	labels[arksv1.ArksControllerKeyRole] = "prefill"
-	labels[arksv1.ArksControllerKeyWorkLoadRole] = role
-	return labels
-}
-
-func generateDecodeLabels(application *arksv1.ArksApplication, role string) map[string]string {
-	labels := map[string]string{}
-	if application.Spec.Decode != nil {
-		for key, value := range application.Spec.Decode.InstanceSpec.Labels {
-			labels[key] = value
-		}
+	labels[arksv1.ArksControllerKeyRole] = role.kind
+	labels[arksv1.ArksControllerKeyWorkLoadRole] = workloadRole
+	if role.group != "" {
+		labels[arksv1.ArksControllerKeyWorkerGroup] = role.group
 	}
-	labels[arksv1.ArksControllerKeyApplication] = application.Name
-	labels[arksv1.ArksControllerKeyModel] = application.Spec.Model.Name
-	labels[arksv1.ArksControllerKeyRole] = "decode"
-	labels[arksv1.ArksControllerKeyWorkLoadRole] = role
 	return labels
 }
 
@@ -1465,13 +1580,13 @@ func generateWorkerCommand(application *arksv1.ArksApplication, model *arksv1.Ar
 	}
 }
 
-func (r *ArksApplicationReconciler) generateDisaggregationLeaderCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel, roleName string) (string, error) {
-	workload := application.Spec.Prefill
-	if roleName == "decode" {
-		workload = application.Spec.Decode
-	}
+// generateDisaggregationLeaderCommand renders the engine leader command of a
+// disaggregated workload. kind is the engine disaggregation mode ("prefill"
+// or "decode"); workload and model are already resolved by the caller (they
+// may belong to one prefill group).
+func (r *ArksApplicationReconciler) generateDisaggregationLeaderCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel, kind string, workload *arksv1.ArksApplicationWorkload) (string, error) {
 	if workload == nil {
-		return "", fmt.Errorf("%s workload is required", roleName)
+		return "", fmt.Errorf("%s workload is required", kind)
 	}
 
 	switch getArksApplicationRuntime(application) {
@@ -1487,7 +1602,7 @@ func (r *ArksApplicationReconciler) generateDisaggregationLeaderCommand(applicat
 			args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
 		}
 		if !strings.Contains(args, "--disaggregation-mode") {
-			args = fmt.Sprintf("%s --disaggregation-mode %s", args, roleName)
+			args = fmt.Sprintf("%s --disaggregation-mode %s", args, kind)
 		}
 		if !strings.Contains(args, "--enable-metrics") {
 			args = fmt.Sprintf("%s --enable-metrics", args)
@@ -1498,13 +1613,11 @@ func (r *ArksApplicationReconciler) generateDisaggregationLeaderCommand(applicat
 	}
 }
 
-func (r *ArksApplicationReconciler) generateDisaggregationWorkerCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel, roleName string) (string, error) {
-	workload := application.Spec.Prefill
-	if roleName == "decode" {
-		workload = application.Spec.Decode
-	}
+// generateDisaggregationWorkerCommand is the worker-side counterpart of
+// generateDisaggregationLeaderCommand.
+func (r *ArksApplicationReconciler) generateDisaggregationWorkerCommand(application *arksv1.ArksApplication, model *arksv1.ArksModel, kind string, workload *arksv1.ArksApplicationWorkload) (string, error) {
 	if workload == nil {
-		return "", fmt.Errorf("%s workload is required", roleName)
+		return "", fmt.Errorf("%s workload is required", kind)
 	}
 
 	switch getArksApplicationRuntime(application) {
@@ -1512,7 +1625,7 @@ func (r *ArksApplicationReconciler) generateDisaggregationWorkerCommand(applicat
 		args := "python3 -m sglang.launch_server --dist-init-addr $(LWS_LEADER_ADDRESS):20000 --nnodes $(LWS_GROUP_SIZE) --node-rank $(LWS_WORKER_INDEX) --trust-remote-code"
 		args = fmt.Sprintf("%s --model-path %s", args, generateModelPath(model))
 		args = fmt.Sprintf("%s --served-model-name %s", args, getServedModelName(application))
-		args = fmt.Sprintf("%s --disaggregation-mode %s", args, roleName)
+		args = fmt.Sprintf("%s --disaggregation-mode %s", args, kind)
 		for _, arg := range workload.RuntimeCommonArgs {
 			args = fmt.Sprintf("%s %s", args, arg)
 		}
